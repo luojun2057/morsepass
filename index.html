@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>摩尔斯码节奏训练器</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="manifest" href="manifest.json?v=5" />
   <meta name="theme-color" content="#1e3a8a" />
 </head>
 <body>
@@ -13,10 +13,30 @@
     <h1>摩尔斯码节奏训练器</h1>
     
     <div class="info-panel">
-      <div>基准点时长 D: <span id="dit-duration">200</span> ms</div>
-      <div>容差: <input type="range" id="tolerance-slider" min="0" max="30" value="20"> <span id="tolerance-value">20</span>%</div>
-      <button id="calibrate-btn">校准（输入5个点）</button>
+      <div>
+        速度: 
+        <input type="range" id="wpm-slider" min="10" max="50" value="20" />
+        <span id="wpm-value">20</span> WPM
+      </div>
+      <div>
+        容差: 
+        <input type="range" id="tolerance-slider" min="0" max="50" value="25" />
+        <span id="tolerance-value">25</span>%
+      </div>
+      <div>
+        音频: 
+        <input type="number" id="frequency-input" min="350" max="800" value="600" style="width:60px;"> Hz
+        <label style="margin-left:10px;">
+          <input type="checkbox" id="audio-enabled" checked> 声音
+        </label>
+      </div>
+      <div>D = <span id="dit-duration">60</span> ms</div>
       <button id="clear-btn">清空</button>
+    </div>
+
+    <div class="stats-panel">
+      <div>实时速度: <span id="real-wpm">-</span> WPM</div>
+      <div>节奏准确率: <span id="accuracy">-</span>%</div>
     </div>
 
     <div class="result-area">
@@ -33,12 +53,21 @@
       <canvas id="timeline-canvas" width="800" height="60"></canvas>
     </div>
 
+    <div class="history-section">
+      <h3>历史记录 (最近 5 条)</h3>
+      <div id="history-list"></div>
+    </div>
+
+    <div class="error-analysis">
+      <h3>错误分析</h3>
+      <div id="error-summary">-</div>
+    </div>
+
     <div class="hint">
-      <p>💡 提示：保持本页面在前台。点（·）≈200ms，划（–）≈600ms。准确输入将显示绿色，偏差过大显示红色。</p>
-      <p>支持 PWA：Chrome/Edge 中可点击地址栏「安装」按钮添加到桌面。</p>
+      <p>💡 提示：声音 = 按键时长。绿色=节奏准确，红色=偏差过大。</p>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>

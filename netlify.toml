@@ -1,0 +1,7 @@
+[build]
+  publish = "."  # 你的发布目录（如dist、public等）
+
+[[headers]]
+  for = "/*"  # 对所有文件生效
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"  # 禁止缓存

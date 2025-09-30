@@ -1,0 +1,21 @@
+{
+  "name": "摩尔斯码节奏训练器",
+  "short_name": "Morse Trainer",
+  "description": "通过视觉反馈练习摩尔斯码发送节奏准确性",
+  "start_url": "/morse-trainer/",
+  "display": "standalone",
+  "background_color": "#f0f4ff",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

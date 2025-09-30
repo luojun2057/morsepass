@@ -1,0 +1,126 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f0f4ff;
+  color: #1e3a8a;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #1e40af;
+}
+
+.info-panel {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.info-panel > div, .info-panel > button {
+  margin: 2px 0;
+}
+
+#tolerance-slider {
+  width: 100px;
+  vertical-align: middle;
+}
+
+.result-area {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  min-height: 60px;
+}
+
+.decoded {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #1e3a8a;
+}
+
+.sequence {
+  font-family: monospace;
+  color: #4b5563;
+}
+
+.input-area {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#morse-button {
+  display: inline-block;
+  padding: 12px 32px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: bold;
+  transition: background 0.2s;
+  outline: none;
+}
+
+#morse-button:hover {
+  background: #2563eb;
+}
+
+#morse-button:active,
+#morse-button:focus {
+  background: #1d4ed8;
+}
+
+.canvas-container {
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  overflow-x: auto;
+}
+
+#timeline-canvas {
+  background: #f9fafb;
+  display: block;
+  border: 1px solid #e5e7eb;
+}
+
+.hint {
+  margin-top: 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .info-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  #timeline-canvas {
+    width: 100%;
+    height: 60px;
+  }
+}

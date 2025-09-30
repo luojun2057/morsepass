@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>摩尔斯码节奏训练器</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1e3a8a" />
+</head>
+<body>
+  <div class="container">
+    <h1>摩尔斯码节奏训练器</h1>
+    
+    <div class="info-panel">
+      <div>基准点时长 D: <span id="dit-duration">200</span> ms</div>
+      <div>容差: <input type="range" id="tolerance-slider" min="0" max="30" value="20"> <span id="tolerance-value">20</span>%</div>
+      <button id="calibrate-btn">校准（输入5个点）</button>
+      <button id="clear-btn">清空</button>
+    </div>
+
+    <div class="result-area">
+      <div class="decoded" id="decoded-output">-</div>
+      <div class="sequence" id="sequence-output">-</div>
+    </div>
+
+    <div class="input-area">
+      <p>按住空格键 或 点击下方按钮输入摩尔斯码</p>
+      <div id="morse-button" tabindex="0">● 按住输入</div>
+    </div>
+
+    <div class="canvas-container">
+      <canvas id="timeline-canvas" width="800" height="60"></canvas>
+    </div>
+
+    <div class="hint">
+      <p>💡 提示：保持本页面在前台。点（·）≈200ms，划（–）≈600ms。准确输入将显示绿色，偏差过大显示红色。</p>
+      <p>支持 PWA：Chrome/Edge 中可点击地址栏「安装」按钮添加到桌面。</p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

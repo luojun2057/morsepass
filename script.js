@@ -336,24 +336,11 @@ function processSignal(duration) {
   // 计算与上一个信号的间隔
   let gap = 0;
   if (lastSignalEnd !== null) {
-    gap = now - duration - lastSignalEnd; // 当前信号开始时间 - 上一个信号结束时间
-    
-    // 如果间隔 ≥3D，固化当前字符
-    if (gap >= 3 * D) {
-      if (currentSequence) {
-        const char = morseToChar[currentSequence] || '?';
-        decodedText += char;
-        currentSequence = "";
-      }
-      // 如果间隔 ≥7D，添加空格
-      if (gap >= 7 * D) {
-        decodedText += " ";
-      }
-    }
-    // 如果 gap < 3D，属于同一字符，继续追加
+    gap = now - duration - lastSignalEnd; // 静音时间
   }
   
-  // 追加当前信号到序列（按输入顺序）
+  // 关键修复：不立即固化字符！
+  // 仅追加信号到当前序列
   currentSequence += (type === 'dot' ? '.' : '-');
   
   signals.push({
@@ -391,7 +378,7 @@ function processSignal(duration) {
 }
 
 function updateDisplay() {
-  // 显示已固化文本 + 当前未完成序列（用 ? 表示未完成）
+  // 显示已固化文本 + 当前未完成序列
   const displayText = decodedText + (currentSequence ? '?' : '');
   if (decodedOutput) decodedOutput.textContent = displayText || "-";
   if (sequenceOutput) sequenceOutput.textContent = currentSequence || "-";

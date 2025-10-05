@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>摩尔斯码节奏训练器</title>
-  <link rel="stylesheet" href="style.css?v=6" />
-  <link rel="manifest" href="manifest.json?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="manifest" href="manifest.json?v=7" />
   <meta name="theme-color" content="#1e3a8a" />
 </head>
 <body>
@@ -43,6 +43,11 @@
       </div>
     </div>
 
+    <!-- 固定发报区 -->
+    <div id="transmit-area" class="transmit-area">
+      <p>● 按住此处 或 按下设定按键发报</p>
+    </div>
+
     <div class="stats-panel">
       <div>实时速度: <span id="real-wpm">-</span> WPM</div>
       <div>节奏准确率: <span id="accuracy">-</span>%</div>
@@ -51,10 +56,6 @@
     <div class="result-area">
       <div class="decoded" id="decoded-output">-</div>
       <div class="sequence" id="sequence-output">-</div>
-    </div>
-
-    <div class="input-hint">
-      <p>💡 开始练习后，点击页面任意位置 或 按下设定按键即可发报</p>
     </div>
 
     <div class="canvas-container">
@@ -72,6 +73,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=6"></script>
+  <script src="script.js?v=7"></script>
 </body>
 </html>

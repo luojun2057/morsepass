@@ -24,9 +24,6 @@ let audioContext = null;
 let currentOscillator = null;
 let currentGainNode = null;
 
-// =============== 自动解码 ===============
-let autoDecodeTimer = null;
-
 // =============== 摩尔斯码字典 ===============
 const morseToChar = {
   '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
@@ -85,7 +82,7 @@ function stopSignalSound() {
 
 // =============== 初始化 ===============
 function init() {
-  // 获取所有 DOM 元素
+  // 获取所有 DOM 元素（关键：确保在 DOM 加载后执行）
   canvas = document.getElementById('timeline-canvas');
   ctx = canvas.getContext('2d');
   decodedOutput = document.getElementById('decoded-output');
@@ -104,9 +101,10 @@ function init() {
   clearBtn = document.getElementById('clear-btn');
   realWpmEl = document.getElementById('real-wpm');
   accuracyEl = document.getElementById('accuracy');
-  historyListEl = document.getElementById('history-list');
+  historyListEl = document.getElementById('history-list'); // 修复：正确获取
   errorSummaryEl = document.getElementById('error-summary');
 
+  // 验证关键元素是否存在
   if (!historyListEl) {
     console.error("历史记录容器未找到！");
     return;
@@ -124,6 +122,7 @@ function init() {
 }
 
 function bindControlEvents() {
+  // 滑块和输入框（始终可调节）
   if (wpmSlider) {
     wpmSlider.addEventListener('input', (e) => {
       currentWPM = parseInt(e.target.value);
@@ -213,27 +212,11 @@ function stopPractice() {
   if (startBtn) startBtn.disabled = false;
   if (stopBtn) stopBtn.disabled = true;
   
-  // 清除自动解码定时器
-  if (autoDecodeTimer) {
-    clearTimeout(autoDecodeTimer);
-    autoDecodeTimer = null;
-  }
-  
   if (isSignalActive) {
     isSignalActive = false;
     stopSignalSound();
     const duration = performance.now() - signalStartTime;
     processSignal(duration);
-  } else {
-    // 立即固化最后一个字符
-    if (currentSequence) {
-      const char = morseToChar[currentSequence] || '?';
-      decodedText += char;
-      currentSequence = "";
-      updateDisplay();
-      updateStats();
-      redrawTimeline();
-    }
   }
   
   disableTransmitArea();
@@ -247,6 +230,7 @@ function enableTransmitArea() {
   
   transmitArea.classList.add('active');
   
+  // 清理旧监听器
   transmitArea.removeEventListener('mousedown', transmitMouseDown);
   transmitArea.removeEventListener('mouseup', transmitMouseUp);
   transmitArea.removeEventListener('mouseleave', transmitMouseUp);
@@ -309,7 +293,7 @@ function globalKeyUp(e) {
   processSignal(duration);
 }
 
-// =============== 核心逻辑（修复解码错误） ===============
+// =============== 核心逻辑 ===============
 function wpmToDitDuration(wpm) {
   return 1200 / wpm;
 }
@@ -327,20 +311,28 @@ function processSignal(duration) {
   const now = performance.now();
   const signalEnd = now;
   
-  // 清除之前的自动解码定时器
-  if (autoDecodeTimer) {
-    clearTimeout(autoDecodeTimer);
-    autoDecodeTimer = null;
-  }
-  
-  // 计算与上一个信号的间隔
   let gap = 0;
   if (lastSignalEnd !== null) {
-    gap = now - duration - lastSignalEnd; // 静音时间
+    gap = now - duration - lastSignalEnd;
   }
   
-  // 关键修复：不立即固化字符！
-  // 仅追加信号到当前序列
+  if (lastSignalEnd !== null) {
+    if (gap >= 7 * D) {
+      if (currentSequence) {
+        const char = morseToChar[currentSequence] || '?';
+        decodedText += char;
+        currentSequence = "";
+      }
+      decodedText += " ";
+    } else if (gap >= 3 * D) {
+      if (currentSequence) {
+        const char = morseToChar[currentSequence] || '?';
+        decodedText += char;
+        currentSequence = "";
+      }
+    }
+  }
+  
   currentSequence += (type === 'dot' ? '.' : '-');
   
   signals.push({
@@ -360,25 +352,9 @@ function processSignal(duration) {
   updateDisplay();
   updateStats();
   redrawTimeline();
-  
-  // 启动自动解码定时器（3D 后触发）
-  const autoDecodeDelay = 3 * D;
-  autoDecodeTimer = setTimeout(() => {
-    autoDecodeTimer = null;
-    if (currentSequence) {
-      const char = morseToChar[currentSequence] || '?';
-      decodedText += char;
-      currentSequence = "";
-      updateDisplay();
-      updateStats();
-      redrawTimeline();
-      saveToHistory();
-    }
-  }, autoDecodeDelay);
 }
 
 function updateDisplay() {
-  // 显示已固化文本 + 当前未完成序列
   const displayText = decodedText + (currentSequence ? '?' : '');
   if (decodedOutput) decodedOutput.textContent = displayText || "-";
   if (sequenceOutput) sequenceOutput.textContent = currentSequence || "-";
@@ -457,11 +433,6 @@ function redrawTimeline() {
 }
 
 function clearAll() {
-  if (autoDecodeTimer) {
-    clearTimeout(autoDecodeTimer);
-    autoDecodeTimer = null;
-  }
-  
   signals = [];
   decodedText = "";
   currentSequence = "";
@@ -495,7 +466,7 @@ function saveToHistory() {
 }
 
 function renderHistory() {
-  if (!historyListEl) return;
+  if (!historyListEl) return; // 关键修复：空值检查
   historyListEl.innerHTML = '';
   historyItems.forEach((item, index) => {
     const div = document.createElement('div');

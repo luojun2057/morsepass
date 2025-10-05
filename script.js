@@ -225,7 +225,7 @@ function stopPractice() {
     const duration = performance.now() - signalStartTime;
     processSignal(duration);
   } else {
-    // 手动触发最后一个字符解码
+    // 立即固化最后一个字符
     if (currentSequence) {
       const char = morseToChar[currentSequence] || '?';
       decodedText += char;
@@ -309,7 +309,7 @@ function globalKeyUp(e) {
   processSignal(duration);
 }
 
-// =============== 核心逻辑 ===============
+// =============== 核心逻辑（修复解码错误） ===============
 function wpmToDitDuration(wpm) {
   return 1200 / wpm;
 }
@@ -327,34 +327,33 @@ function processSignal(duration) {
   const now = performance.now();
   const signalEnd = now;
   
-  let gap = 0;
-  if (lastSignalEnd !== null) {
-    gap = now - duration - lastSignalEnd;
-  }
-  
   // 清除之前的自动解码定时器
   if (autoDecodeTimer) {
     clearTimeout(autoDecodeTimer);
     autoDecodeTimer = null;
   }
   
+  // 计算与上一个信号的间隔
+  let gap = 0;
   if (lastSignalEnd !== null) {
-    if (gap >= 7 * D) {
+    gap = now - duration - lastSignalEnd; // 当前信号开始时间 - 上一个信号结束时间
+    
+    // 如果间隔 ≥3D，固化当前字符
+    if (gap >= 3 * D) {
       if (currentSequence) {
         const char = morseToChar[currentSequence] || '?';
         decodedText += char;
         currentSequence = "";
       }
-      decodedText += " ";
-    } else if (gap >= 3 * D) {
-      if (currentSequence) {
-        const char = morseToChar[currentSequence] || '?';
-        decodedText += char;
-        currentSequence = "";
+      // 如果间隔 ≥7D，添加空格
+      if (gap >= 7 * D) {
+        decodedText += " ";
       }
     }
+    // 如果 gap < 3D，属于同一字符，继续追加
   }
   
+  // 追加当前信号到序列（按输入顺序）
   currentSequence += (type === 'dot' ? '.' : '-');
   
   signals.push({
@@ -392,6 +391,7 @@ function processSignal(duration) {
 }
 
 function updateDisplay() {
+  // 显示已固化文本 + 当前未完成序列（用 ? 表示未完成）
   const displayText = decodedText + (currentSequence ? '?' : '');
   if (decodedOutput) decodedOutput.textContent = displayText || "-";
   if (sequenceOutput) sequenceOutput.textContent = currentSequence || "-";

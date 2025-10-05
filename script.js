@@ -82,7 +82,7 @@ function stopSignalSound() {
 
 // =============== 初始化 ===============
 function init() {
-  // 获取 DOM 元素（确保在 DOM 加载后执行）
+  // 获取所有 DOM 元素（关键：确保在 DOM 加载后执行）
   canvas = document.getElementById('timeline-canvas');
   ctx = canvas.getContext('2d');
   decodedOutput = document.getElementById('decoded-output');
@@ -101,14 +101,19 @@ function init() {
   clearBtn = document.getElementById('clear-btn');
   realWpmEl = document.getElementById('real-wpm');
   accuracyEl = document.getElementById('accuracy');
-  historyListEl = document.getElementById('history-list');
+  historyListEl = document.getElementById('history-list'); // 修复：正确获取
   errorSummaryEl = document.getElementById('error-summary');
+
+  // 验证关键元素是否存在
+  if (!historyListEl) {
+    console.error("历史记录容器未找到！");
+    return;
+  }
 
   updateDitDisplay();
   updateCanvasSize();
   window.addEventListener('resize', updateCanvasSize);
   
-  // 绑定所有控件事件（关键修复：确保只绑定一次）
   bindControlEvents();
   
   redrawTimeline();
@@ -118,43 +123,52 @@ function init() {
 
 function bindControlEvents() {
   // 滑块和输入框（始终可调节）
-  wpmSlider.addEventListener('input', (e) => {
-    currentWPM = parseInt(e.target.value);
-    wpmValueEl.textContent = currentWPM;
-    updateDitDisplay();
-    redrawTimeline();
-  });
+  if (wpmSlider) {
+    wpmSlider.addEventListener('input', (e) => {
+      currentWPM = parseInt(e.target.value);
+      if (wpmValueEl) wpmValueEl.textContent = currentWPM;
+      updateDitDisplay();
+      redrawTimeline();
+    });
+  }
   
-  toleranceSlider.addEventListener('input', (e) => {
-    tolerancePercent = parseInt(e.target.value);
-    toleranceValueEl.textContent = tolerancePercent;
-    redrawTimeline();
-  });
+  if (toleranceSlider) {
+    toleranceSlider.addEventListener('input', (e) => {
+      tolerancePercent = parseInt(e.target.value);
+      if (toleranceValueEl) toleranceValueEl.textContent = tolerancePercent;
+      redrawTimeline();
+    });
+  }
   
-  frequencyInput.addEventListener('change', (e) => {
-    let freq = parseInt(e.target.value);
-    if (freq < 350) freq = 350;
-    if (freq > 800) freq = 800;
-    audioFrequency = freq;
-    frequencyInput.value = freq;
-  });
+  if (frequencyInput) {
+    frequencyInput.addEventListener('change', (e) => {
+      let freq = parseInt(e.target.value);
+      if (freq < 350) freq = 350;
+      if (freq > 800) freq = 800;
+      audioFrequency = freq;
+      frequencyInput.value = freq;
+    });
+  }
   
-  audioEnabledCheckbox.addEventListener('change', () => {
-    if (!audioEnabledCheckbox.checked) stopSignalSound();
-  });
+  if (audioEnabledCheckbox) {
+    audioEnabledCheckbox.addEventListener('change', () => {
+      if (!audioEnabledCheckbox.checked) stopSignalSound();
+    });
+  }
   
-  setKeyBtn.addEventListener('click', startKeyCapture);
-  startBtn.addEventListener('click', startPractice);
-  stopBtn.addEventListener('click', stopPractice);
-  clearBtn.addEventListener('click', clearAll);
+  if (setKeyBtn) setKeyBtn.addEventListener('click', startKeyCapture);
+  if (startBtn) startBtn.addEventListener('click', startPractice);
+  if (stopBtn) stopBtn.addEventListener('click', stopPractice);
+  if (clearBtn) clearBtn.addEventListener('click', clearAll);
 }
 
 function updateDitDisplay() {
   const d = wpmToDitDuration(currentWPM);
-  ditDurationEl.textContent = Math.round(d);
+  if (ditDurationEl) ditDurationEl.textContent = Math.round(d);
 }
 
 function updateCanvasSize() {
+  if (!canvas) return;
   const container = canvas.parentElement;
   canvas.width = Math.max(container.clientWidth, 800);
   canvas.height = 60;
@@ -163,14 +177,17 @@ function updateCanvasSize() {
 
 // =============== 按键捕获 ===============
 function startKeyCapture() {
+  if (!keyInput) return;
   keyInput.value = "按下任意键...";
   keyInput.style.backgroundColor = "#fef3c7";
   
   const captureKey = (e) => {
     e.preventDefault();
     inputKeyCode = e.code;
-    keyInput.value = e.code;
-    keyInput.style.backgroundColor = "";
+    if (keyInput) {
+      keyInput.value = e.code;
+      keyInput.style.backgroundColor = "";
+    }
     window.removeEventListener('keydown', captureKey);
   };
   
@@ -181,19 +198,19 @@ function startKeyCapture() {
 function startPractice() {
   if (isPracticeMode) return;
   isPracticeMode = true;
-  startBtn.disabled = true;
-  stopBtn.disabled = false;
+  if (startBtn) startBtn.disabled = true;
+  if (stopBtn) stopBtn.disabled = false;
   
   enableTransmitArea();
-  decodedOutput.textContent = decodedText || "-";
-  sequenceOutput.textContent = currentSequence || "-";
+  if (decodedOutput) decodedOutput.textContent = decodedText || "-";
+  if (sequenceOutput) sequenceOutput.textContent = currentSequence || "-";
 }
 
 function stopPractice() {
   if (!isPracticeMode) return;
   isPracticeMode = false;
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
+  if (startBtn) startBtn.disabled = false;
+  if (stopBtn) stopBtn.disabled = true;
   
   if (isSignalActive) {
     isSignalActive = false;
@@ -213,7 +230,7 @@ function enableTransmitArea() {
   
   transmitArea.classList.add('active');
   
-  // 移除可能的重复监听
+  // 清理旧监听器
   transmitArea.removeEventListener('mousedown', transmitMouseDown);
   transmitArea.removeEventListener('mouseup', transmitMouseUp);
   transmitArea.removeEventListener('mouseleave', transmitMouseUp);
@@ -339,31 +356,31 @@ function processSignal(duration) {
 
 function updateDisplay() {
   const displayText = decodedText + (currentSequence ? '?' : '');
-  decodedOutput.textContent = displayText || "-";
-  sequenceOutput.textContent = currentSequence || "-";
+  if (decodedOutput) decodedOutput.textContent = displayText || "-";
+  if (sequenceOutput) sequenceOutput.textContent = currentSequence || "-";
 }
 
 function updateStats() {
   if (signals.length === 0) {
-    realWpmEl.textContent = "-";
-    accuracyEl.textContent = "-";
-    errorSummaryEl.textContent = "-";
+    if (realWpmEl) realWpmEl.textContent = "-";
+    if (accuracyEl) accuracyEl.textContent = "-";
+    if (errorSummaryEl) errorSummaryEl.textContent = "-";
     return;
   }
 
   const now = performance.now();
   const recentSignals = signals.filter(s => s.start > now - 5000);
   if (recentSignals.length === 0) {
-    realWpmEl.textContent = "-";
-    accuracyEl.textContent = "-";
+    if (realWpmEl) realWpmEl.textContent = "-";
+    if (accuracyEl) accuracyEl.textContent = "-";
   } else {
     const totalTime = recentSignals.reduce((sum, s) => sum + s.duration, 0);
     const estimatedWPM = totalTime > 0 ? (1200 * recentSignals.length) / totalTime : 0;
-    realWpmEl.textContent = Math.round(estimatedWPM * 10) / 10;
+    if (realWpmEl) realWpmEl.textContent = Math.round(estimatedWPM * 10) / 10;
 
     const accurateCount = recentSignals.filter(s => s.accurate).length;
     const accuracy = recentSignals.length > 0 ? Math.round((accurateCount / recentSignals.length) * 100) : 0;
-    accuracyEl.textContent = accuracy;
+    if (accuracyEl) accuracyEl.textContent = accuracy;
   }
 
   const errors = [];
@@ -388,7 +405,9 @@ function updateStats() {
     }
   }
 
-  errorSummaryEl.textContent = errors.length > 0 ? errors.join("\n") : "无明显错误";
+  if (errorSummaryEl) {
+    errorSummaryEl.textContent = errors.length > 0 ? errors.join("\n") : "无明显错误";
+  }
 }
 
 function redrawTimeline() {
@@ -447,7 +466,7 @@ function saveToHistory() {
 }
 
 function renderHistory() {
-  if (!historyListEl) return;
+  if (!historyListEl) return; // 关键修复：空值检查
   historyListEl.innerHTML = '';
   historyItems.forEach((item, index) => {
     const div = document.createElement('div');
@@ -471,16 +490,16 @@ function loadHistory(index) {
   tolerancePercent = item.tolerance;
   if (wpmSlider) {
     wpmSlider.value = currentWPM;
-    wpmValueEl.textContent = currentWPM;
+    if (wpmValueEl) wpmValueEl.textContent = currentWPM;
   }
   if (toleranceSlider) {
     toleranceSlider.value = tolerancePercent;
-    toleranceValueEl.textContent = tolerancePercent;
+    if (toleranceValueEl) toleranceValueEl.textContent = tolerancePercent;
   }
   updateDitDisplay();
   
-  decodedOutput.textContent = decodedText || "-";
-  sequenceOutput.textContent = "-";
+  if (decodedOutput) decodedOutput.textContent = decodedText || "-";
+  if (sequenceOutput) sequenceOutput.textContent = "-";
   updateStats();
   redrawTimeline();
   

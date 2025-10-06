@@ -1,0 +1,157 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f0f4ff;
+  color: #1e3a8a;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #1e40af;
+}
+
+.info-panel {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.info-panel > div, .info-panel > button {
+  margin: 2px 0;
+}
+
+#back-btn {
+  background: #64748b;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#back-btn:hover {
+  background: #475569;
+}
+
+.input-section, .transcribe-section {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.input-section label,
+.transcribe-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #334155;
+}
+
+#source-text,
+#user-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 16px;
+  resize: vertical;
+  min-height: 80px; /* 至少3行 */
+}
+
+#user-input {
+  font-size: 18px; /* 听抄输入稍大 */
+}
+
+#play-btn {
+  margin-top: 12px;
+  background: #0ea5e9;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#play-btn:hover:not(:disabled) {
+  background: #0284c7;
+}
+
+#play-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.result-section {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.result-section h3 {
+  margin-bottom: 12px;
+  color: #1e3a8a;
+}
+
+#comparison-output {
+  font-family: monospace;
+  font-size: 20px;
+  min-height: 30px;
+  margin: 10px 0;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.stats {
+  font-size: 18px;
+  font-weight: bold;
+  color: #1e3a8a;
+  margin-top: 10px;
+}
+
+.hint {
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+  .info-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  #wpm-slider, #frequency-input {
+    width: 100px;
+  }
+}

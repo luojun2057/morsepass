@@ -138,15 +138,16 @@ function resetPlayback() {
   stopBtn.disabled = true;
 }
 
-// =============== 智能比对（保留用户原始大小写）===============
-function normalizeText(text) {
-  // 仅用于比对：转大写 + 过滤
-  return text.toUpperCase().replace(/[^A-Z0-9\s]/g, '');
+// =============== 顺序单向匹配（LCWO 风格）===============
+function normalizeChar(c) {
+  // 仅标准化单个字符（用于比对）
+  const upper = c.toUpperCase();
+  return /^[A-Z0-9\s]$/.test(upper) ? upper : null;
 }
 
 function checkAnswer() {
   const sourceRaw = sourceText.value;
-  const userRaw = userInput.value; // 保留原始输入（含大小写）
+  const userRaw = userInput.value;
 
   if (!sourceRaw.trim()) {
     comparisonOutput.innerHTML = '';
@@ -154,91 +155,79 @@ function checkAnswer() {
     return;
   }
 
-  // 标准化用于比对
-  const sourceNorm = normalizeText(sourceRaw);
-  const userNorm = normalizeText(userRaw);
+  // 提取有效字符序列（保留原始索引）
+  const sourceChars = [];
+  for (let i = 0; i < sourceRaw.length; i++) {
+    const norm = normalizeChar(sourceRaw[i]);
+    if (norm !== null) {
+      sourceChars.push({
+        char: sourceRaw[i], // 原始字符（保留大小写）
+        norm: norm          // 标准化字符（用于比对）
+      });
+    }
+  }
 
-  if (!sourceNorm) {
+  const userChars = [];
+  for (let i = 0; i < userRaw.length; i++) {
+    const norm = normalizeChar(userRaw[i]);
+    if (norm !== null) {
+      userChars.push({
+        char: userRaw[i],
+        norm: norm
+      });
+    }
+  }
+
+  if (sourceChars.length === 0) {
     comparisonOutput.innerHTML = '<span style="color:red;">原文无效</span>';
     accuracyRateEl.textContent = '0';
     return;
   }
 
-  if (!userNorm) {
-    let html = '';
-    for (let i = 0; i < sourceNorm.length; i++) {
-      html += '<span style="color:red;">-</span>';
+  // 顺序单向匹配
+  const matched = new Array(sourceChars.length).fill(false);
+  let srcIndex = 0;
+  let correctCount = 0;
+
+  for (let userIndex = 0; userIndex < userChars.length; userIndex++) {
+    const u = userChars[userIndex];
+    // 从当前 srcIndex 开始向后查找匹配
+    while (srcIndex < sourceChars.length && sourceChars[srcIndex].norm !== u.norm) {
+      srcIndex++;
     }
-    comparisonOutput.innerHTML = html;
-    accuracyRateEl.textContent = '0';
-    return;
+    if (srcIndex < sourceChars.length) {
+      // 匹配成功
+      matched[srcIndex] = true;
+      correctCount++;
+      srcIndex++; // 移动到下一个位置（不可回溯）
+    }
+    // 若未找到，用户字符视为多余（不标记原文）
   }
 
-  // 构建 LCS DP 表（基于标准化文本）
-  const m = sourceNorm.length;
-  const n = userNorm.length;
-  const dp = Array(m + 1).fill().map(() => Array(n + 1).fill(0));
-
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (sourceNorm[i - 1] === userNorm[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-      }
-    }
-  }
-
-  // 回溯标记原文中哪些位置被匹配
-  let i = m, j = n;
-  const matchedInSource = new Array(m).fill(false);
-  while (i > 0 && j > 0) {
-    if (sourceNorm[i - 1] === userNorm[j - 1]) {
-      matchedInSource[i - 1] = true;
-      i--;
-      j--;
-    } else if (dp[i - 1][j] >= dp[i][j - 1]) {
-      i--;
-    } else {
-      j--;
-    }
-  }
-
-  // 构建可视化：使用用户原始输入字符（保留大小写）
+  // 构建可视化输出
   let html = '';
-  let userIndex = 0;
-
-  for (let srcIdx = 0; srcIdx < sourceNorm.length; srcIdx++) {
-    if (matchedInSource[srcIdx]) {
-      // 找到对应的用户原始字符（跳过非字母数字）
-      let rawChar = '';
-      while (userIndex < userRaw.length) {
-        const c = userRaw[userIndex];
-        userIndex++;
-        if (/^[A-Z0-9\s]$/i.test(c)) { // 是有效字符
-          rawChar = c;
-          break;
-        }
-      }
-      if (rawChar === ' ') {
+  for (let i = 0; i < sourceChars.length; i++) {
+    if (matched[i]) {
+      const c = sourceChars[i].char;
+      if (c === ' ') {
         html += '<span style="color:green;">␣</span>';
       } else {
-        html += `<span style="color:green;">${rawChar}</span>`;
+        html += `<span style="color:green;">${c}</span>`;
       }
     } else {
       html += '<span style="color:red;">-</span>';
     }
   }
 
-  // 处理用户多余输入（可选提示）
-  const lcsLength = dp[m][n];
-  const extraCount = userNorm.length - lcsLength;
+  // 处理用户多余输入
+  const extraCount = userChars.length - correctCount;
   if (extraCount > 0) {
     html += ` <span style="color:orange;">[+${extraCount}]</span>`;
   }
 
-  const accuracy = Math.round((lcsLength / sourceNorm.length) * 100);
+  const accuracy = Math.round((correctCount / sourceChars.length) * 100);
   comparisonOutput.innerHTML = html;
   accuracyRateEl.textContent = accuracy;
-}// =============== 启动 ===============
+}
+// =============== 启动 ===============
 window.addEventListener('load', init);

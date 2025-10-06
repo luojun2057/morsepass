@@ -219,8 +219,16 @@ function stopPractice() {
     processSignal(duration);
   }
   
+  // 处理剩余未解码的摩尔斯序列
+  if (currentSequence) {
+    const char = morseToChar[currentSequence] || '?';
+    decodedText += char;
+    currentSequence = "";
+  }
+  
   disableTransmitArea();
   saveToHistory();
+  updateDisplay(); // 更新显示以反映最后的解码结果
 }
 
 // =============== 发报区控制 ===============

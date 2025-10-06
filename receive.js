@@ -138,101 +138,107 @@ function resetPlayback() {
   stopBtn.disabled = true;
 }
 
-// =============== 智能比对（LCS + 路径回溯）===============
+// =============== 智能比对（保留用户原始大小写）===============
 function normalizeText(text) {
+  // 仅用于比对：转大写 + 过滤
   return text.toUpperCase().replace(/[^A-Z0-9\s]/g, '');
 }
 
 function checkAnswer() {
   const sourceRaw = sourceText.value;
-  const userRaw = userInput.value;
-  
+  const userRaw = userInput.value; // 保留原始输入（含大小写）
+
   if (!sourceRaw.trim()) {
     comparisonOutput.innerHTML = '';
     accuracyRateEl.textContent = '-';
     return;
   }
-  
-  const source = normalizeText(sourceRaw);
-  const user = normalizeText(userRaw);
-  
-  if (!source) {
+
+  // 标准化用于比对
+  const sourceNorm = normalizeText(sourceRaw);
+  const userNorm = normalizeText(userRaw);
+
+  if (!sourceNorm) {
     comparisonOutput.innerHTML = '<span style="color:red;">原文无效</span>';
     accuracyRateEl.textContent = '0';
     return;
   }
-  
-  if (!user) {
-    // 全部漏听
+
+  if (!userNorm) {
     let html = '';
-    for (let i = 0; i < source.length; i++) {
+    for (let i = 0; i < sourceNorm.length; i++) {
       html += '<span style="color:red;">-</span>';
     }
     comparisonOutput.innerHTML = html;
     accuracyRateEl.textContent = '0';
     return;
   }
-  
-  // 构建 LCS DP 表
-  const m = source.length;
-  const n = user.length;
+
+  // 构建 LCS DP 表（基于标准化文本）
+  const m = sourceNorm.length;
+  const n = userNorm.length;
   const dp = Array(m + 1).fill().map(() => Array(n + 1).fill(0));
-  
+
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (source[i - 1] === user[j - 1]) {
+      if (sourceNorm[i - 1] === userNorm[j - 1]) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
       }
     }
   }
-  
-  // 回溯构建可视化
-  let html = '';
+
+  // 回溯标记原文中哪些位置被匹配
   let i = m, j = n;
-  const matched = new Array(m).fill(false); // 标记原文哪些字符被匹配
-  
+  const matchedInSource = new Array(m).fill(false);
   while (i > 0 && j > 0) {
-    if (source[i - 1] === user[j - 1]) {
-      matched[i - 1] = true;
+    if (sourceNorm[i - 1] === userNorm[j - 1]) {
+      matchedInSource[i - 1] = true;
       i--;
       j--;
-    } else if (dp[i - 1][j] > dp[i][j - 1]) {
+    } else if (dp[i - 1][j] >= dp[i][j - 1]) {
       i--;
     } else {
       j--;
     }
   }
-  
-  // 从前往后构建输出（按原文顺序）
+
+  // 构建可视化：使用用户原始输入字符（保留大小写）
+  let html = '';
   let userIndex = 0;
-  for (let k = 0; k < m; k++) {
-    if (matched[k]) {
-      // 匹配成功
-      if (source[k] === ' ') {
+
+  for (let srcIdx = 0; srcIdx < sourceNorm.length; srcIdx++) {
+    if (matchedInSource[srcIdx]) {
+      // 找到对应的用户原始字符（跳过非字母数字）
+      let rawChar = '';
+      while (userIndex < userRaw.length) {
+        const c = userRaw[userIndex];
+        userIndex++;
+        if (/^[A-Z0-9\s]$/i.test(c)) { // 是有效字符
+          rawChar = c;
+          break;
+        }
+      }
+      if (rawChar === ' ') {
         html += '<span style="color:green;">␣</span>';
       } else {
-        html += `<span style="color:green;">${source[k]}</span>`;
+        html += `<span style="color:green;">${rawChar}</span>`;
       }
-      userIndex++;
     } else {
-      // 漏听或错位
       html += '<span style="color:red;">-</span>';
     }
   }
-  
-  // 处理用户多余输入（可选）
+
+  // 处理用户多余输入（可选提示）
   const lcsLength = dp[m][n];
-  const extraCount = user.length - lcsLength;
+  const extraCount = userNorm.length - lcsLength;
   if (extraCount > 0) {
-    html += ` <span style="color:orange;">[多余${extraCount}字符]</span>`;
+    html += ` <span style="color:orange;">[+${extraCount}]</span>`;
   }
-  
-  const accuracy = Math.round((lcsLength / source.length) * 100);
-  
+
+  const accuracy = Math.round((lcsLength / sourceNorm.length) * 100);
   comparisonOutput.innerHTML = html;
   accuracyRateEl.textContent = accuracy;
-}
-// =============== 启动 ===============
+}// =============== 启动 ===============
 window.addEventListener('load', init);

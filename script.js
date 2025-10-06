@@ -18,6 +18,7 @@ let isPracticeMode = false;
 let inputKeyCode = 'Space';
 let isSignalActive = false;
 let signalStartTime = 0;
+let gapTimer = null; // 新增：间隔定时器，用于检测空格标准
 
 // ====== 音频控制 ======
 let audioContext = null;
@@ -37,7 +38,7 @@ const morseToChar = {
   '.-.-.-': '.', '--..--': ',', '..--..': '?', '.----.': "'", '-.-.--': '!',
   '-..-.': '/', '-.--.': '(', '-.--.-': ')', '.-...': '&', '---...': ':',
   '-.-.-.': ';', '-...-': '=', '.-.-.': '+', '-....-': '-', '..--.-': '_',
-  '.-..-.': '"', '...-..-': '$', '.--.-.': '@'
+  '.-..-.': '\"', '...-..-': '$', '.--.-.': '@'
 };
 
 // =============== DOM 元素 ===============
@@ -212,6 +213,19 @@ function stopPractice() {
   if (startBtn) startBtn.disabled = false;
   if (stopBtn) stopBtn.disabled = true;
   
+  // 清除间隔定时器并处理剩余序列
+  if (gapTimer) {
+    clearTimeout(gapTimer);
+    gapTimer = null;
+  }
+  
+  // 处理剩余未解码序列
+  if (currentSequence) {
+    const char = morseToChar[currentSequence] || '?';
+    decodedText += char;
+    currentSequence = "";
+  }
+  
   if (isSignalActive) {
     isSignalActive = false;
     stopSignalSound();
@@ -219,16 +233,9 @@ function stopPractice() {
     processSignal(duration);
   }
   
-  // 处理剩余未解码的摩尔斯序列
-  if (currentSequence) {
-    const char = morseToChar[currentSequence] || '?';
-    decodedText += char;
-    currentSequence = "";
-  }
-  
   disableTransmitArea();
   saveToHistory();
-  updateDisplay(); // 更新显示以反映最后的解码结果
+  updateDisplay(); // 确保最后结果显示
 }
 
 // =============== 发报区控制 ===============
@@ -307,6 +314,12 @@ function wpmToDitDuration(wpm) {
 }
 
 function processSignal(duration) {
+  // 清除现有定时器
+  if (gapTimer) {
+    clearTimeout(gapTimer);
+    gapTimer = null;
+  }
+
   const D = wpmToDitDuration(currentWPM);
   const isDot = duration < D * 2;
   const type = isDot ? 'dot' : 'dash';
@@ -328,14 +341,13 @@ function processSignal(duration) {
     if (gap >= 7 * D) {
       if (currentSequence) {
         const char = morseToChar[currentSequence] || '?';
-        decodedText += char;
+        decodedText += char + " "; // 单词间隔
         currentSequence = "";
       }
-      decodedText += " ";
     } else if (gap >= 3 * D) {
       if (currentSequence) {
         const char = morseToChar[currentSequence] || '?';
-        decodedText += char;
+        decodedText += char; // 字符间隔
         currentSequence = "";
       }
     }
@@ -353,6 +365,19 @@ function processSignal(duration) {
   });
 
   lastSignalEnd = signalEnd;
+
+  // 启动单词间隔定时器（7D + 20%容差）
+  const timeoutDuration = 7 * D * 1.2;
+  gapTimer = setTimeout(() => {
+    if (currentSequence) {
+      const char = morseToChar[currentSequence] || '?';
+      decodedText += char + " "; // 超时视为单词间隔
+      currentSequence = "";
+      updateDisplay();
+      redrawTimeline();
+    }
+    gapTimer = null;
+  }, timeoutDuration);
 
   const cutoff = now - MAX_HISTORY_MS;
   signals = signals.filter(s => s.start + s.duration >= cutoff);
@@ -446,6 +471,13 @@ function clearAll() {
   currentSequence = "";
   lastSignalEnd = null;
   isSignalActive = false;
+  
+  // 清除定时器
+  if (gapTimer) {
+    clearTimeout(gapTimer);
+    gapTimer = null;
+  }
+  
   stopSignalSound();
   redrawTimeline();
   updateDisplay();
@@ -493,6 +525,12 @@ function loadHistory(index) {
   decodedText = item.text;
   currentSequence = "";
   lastSignalEnd = null;
+  
+  // 清除定时器
+  if (gapTimer) {
+    clearTimeout(gapTimer);
+    gapTimer = null;
+  }
   
   currentWPM = item.wpm;
   tolerancePercent = item.tolerance;

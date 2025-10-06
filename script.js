@@ -18,7 +18,6 @@ let isPracticeMode = false;
 let inputKeyCode = 'Space';
 let isSignalActive = false;
 let signalStartTime = 0;
-let gapTimer = null; // 新增：间隔定时器
 
 // ====== 音频控制 ======
 let audioContext = null;
@@ -213,12 +212,6 @@ function stopPractice() {
   if (startBtn) startBtn.disabled = false;
   if (stopBtn) stopBtn.disabled = true;
   
-  // 清除间隔定时器
-  if (gapTimer) {
-    clearTimeout(gapTimer);
-    gapTimer = null;
-  }
-  
   if (isSignalActive) {
     isSignalActive = false;
     stopSignalSound();
@@ -226,17 +219,8 @@ function stopPractice() {
     processSignal(duration);
   }
   
-  // 处理剩余序列
-  const D = wpmToDitDuration(currentWPM);
-  if (currentSequence) {
-    const char = morseToChar[currentSequence] || '?';
-    decodedText += char;
-    currentSequence = "";
-  }
-  
   disableTransmitArea();
   saveToHistory();
-  updateDisplay();
 }
 
 // =============== 发报区控制 ===============
@@ -315,12 +299,6 @@ function wpmToDitDuration(wpm) {
 }
 
 function processSignal(duration) {
-  // 清除现有定时器
-  if (gapTimer) {
-    clearTimeout(gapTimer);
-    gapTimer = null;
-  }
-
   const D = wpmToDitDuration(currentWPM);
   const isDot = duration < D * 2;
   const type = isDot ? 'dot' : 'dash';
@@ -342,13 +320,14 @@ function processSignal(duration) {
     if (gap >= 7 * D) {
       if (currentSequence) {
         const char = morseToChar[currentSequence] || '?';
-        decodedText += char + " "; // 7D间隔：添加单词空格
+        decodedText += char;
         currentSequence = "";
       }
+      decodedText += " ";
     } else if (gap >= 3 * D) {
       if (currentSequence) {
         const char = morseToChar[currentSequence] || '?';
-        decodedText += char; // 3D间隔：仅添加字符
+        decodedText += char;
         currentSequence = "";
       }
     }
@@ -366,19 +345,6 @@ function processSignal(duration) {
   });
 
   lastSignalEnd = signalEnd;
-
-  // 启动7D间隔定时器（+20%容差避免精度问题）
-  const timeoutDuration = 7 * D * 1.2;
-  gapTimer = setTimeout(() => {
-    if (currentSequence) {
-      const char = morseToChar[currentSequence] || '?';
-      decodedText += char + " "; // 超时视为单词间隔
-      currentSequence = "";
-      updateDisplay();
-      redrawTimeline();
-    }
-    gapTimer = null;
-  }, timeoutDuration);
 
   const cutoff = now - MAX_HISTORY_MS;
   signals = signals.filter(s => s.start + s.duration >= cutoff);
@@ -472,13 +438,6 @@ function clearAll() {
   currentSequence = "";
   lastSignalEnd = null;
   isSignalActive = false;
-  
-  // 清除定时器
-  if (gapTimer) {
-    clearTimeout(gapTimer);
-    gapTimer = null;
-  }
-  
   stopSignalSound();
   redrawTimeline();
   updateDisplay();
@@ -526,12 +485,6 @@ function loadHistory(index) {
   decodedText = item.text;
   currentSequence = "";
   lastSignalEnd = null;
-  
-  // 清除定时器
-  if (gapTimer) {
-    clearTimeout(gapTimer);
-    gapTimer = null;
-  }
   
   currentWPM = item.wpm;
   tolerancePercent = item.tolerance;

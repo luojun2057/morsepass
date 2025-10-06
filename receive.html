@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>摩尔斯码听抄练习</title>
+  <link rel="stylesheet" href="receive.css?v=2" />
+</head>
+<body>
+  <div class="container">
+    <h1>摩尔斯码听抄练习</h1>
+    
+    <div class="info-panel">
+      <div>
+        速度: 
+        <input type="range" id="wpm-slider" min="10" max="50" value="20" />
+        <span id="wpm-value">20</span> WPM
+      </div>
+      <div>
+        音频频率: 
+        <input type="number" id="frequency-input" min="350" max="800" value="600" style="width:60px;"> Hz
+      </div>
+      <button id="back-btn">返回主页面</button>
+    </div>
+
+    <div class="input-section">
+      <label>粘贴原文（支持大段文本，仅字母/数字/空格有效）:</label>
+      <textarea id="source-text" rows="4" placeholder="例如: SOS HELP PLEASE SEND ASSISTANCE"></textarea>
+      <div class="play-controls">
+        <button id="play-btn">播放摩尔斯码</button>
+        <button id="stop-btn" disabled>停止播放</button>
+      </div>
+    </div>
+
+    <div class="transcribe-section">
+      <label>听抄输入（直接打字或粘贴）:</label>
+      <textarea id="user-input" rows="4" placeholder="听到什么就输入什么..."></textarea>
+    </div>
+
+    <div class="result-section">
+      <h3>比对结果</h3>
+      <div id="comparison-output"></div>
+      <div class="stats">
+        正确率: <span id="accuracy-rate">-</span>%
+      </div>
+    </div>
+
+    <div class="hint">
+      <p>💡 提示：漏抄显示为 <span style="color:red;">-</span>，错抄显示为 <span style="color:red;">红色字符</span></p>
+    </div>
+  </div>
+
+  <script src="receive.js?v=2"></script>
+</body>
+</html>

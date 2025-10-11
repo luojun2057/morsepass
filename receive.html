@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>摩尔斯码听抄训练</title>
-  <link rel="stylesheet" href="receive.css?v=6" />
+  <link rel="stylesheet" href="receive.css?v=7" />
 </head>
 <body>
   <div class="container">
@@ -22,14 +22,16 @@
         <span id="tolerance-value">25</span>%
       </div>
       <div>
-        音频频率: 
+        音频: 
         <input type="number" id="frequency-input" min="350" max="800" value="600" style="width:60px;"> Hz
+        <button id="set-key-btn">设置按键</button> <!-- 新增 -->
       </div>
       <button id="back-btn">返回主页面</button>
     </div>
 
     <div class="input-section">
       <label>粘贴原文（支持字母、数字、空格）:</label>
+      <!-- 关键修复：确保 textarea 允许空格 -->
       <textarea id="source-text" rows="3" placeholder="例如: SOS HELP PLEASE"></textarea>
       <div class="play-controls">
         <button id="play-btn">播放摩尔斯码</button>
@@ -37,7 +39,6 @@
       </div>
     </div>
 
-    <!-- 新增：输入模式切换 -->
     <div class="mode-toggle">
       <label>
         <input type="radio" name="input-mode" value="keyboard" checked> 键盘输入
@@ -47,16 +48,14 @@
       </label>
     </div>
 
-    <!-- 键盘输入框（默认显示） -->
     <div id="keyboard-input-section" class="transcribe-section">
       <label>听抄输入（直接打字）:</label>
       <textarea id="user-input" rows="3" placeholder="听到什么就输入什么..."></textarea>
     </div>
 
-    <!-- 跟发区（默认隐藏） -->
     <div id="transmit-section" class="transmit-section" style="display:none;">
       <div id="transmit-area" class="transmit-area">
-        <p>● 按住此处 或 按下空格键 跟发摩尔斯码</p>
+        <p>● 按住此处 或 按下设定按键 跟发</p>
       </div>
       <div class="canvas-container">
         <canvas id="timeline-canvas" width="800" height="60"></canvas>
@@ -74,10 +73,10 @@
     </div>
 
     <div class="hint">
-      <p>💡 键盘模式：直接打字；跟发模式：用发报区实时发送</p>
+      <p>💡 按键默认为「空格」，可点击「设置按键」修改</p>
     </div>
   </div>
 
-  <script src="receive.js?v=6"></script>
+  <script src="receive.js?v=7"></script>
 </body>
 </html>

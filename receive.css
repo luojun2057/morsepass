@@ -53,7 +53,7 @@ h1 {
   background: #475569;
 }
 
-.input-section, .transcribe-section, .result-section {
+.input-section, .transcribe-section {
   background: white;
   padding: 16px;
   border-radius: 8px;
@@ -124,61 +124,19 @@ h1 {
   cursor: not-allowed;
 }
 
-/* 发报区样式 */
-.transmit-area {
-  background: #dbeafe;
-  border: 2px dashed #3b82f6;
-  border-radius: 8px;
-  padding: 15px;
-  text-align: center;
-  margin: 15px 0;
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.2s;
-}
-
-.transmit-area:hover {
-  background: #bfdbfe;
-}
-
-.transmit-area.active {
-  background: #93c5fd;
-  border-style: solid;
-}
-
-/* 时间轴可视化 */
-.canvas-container {
+.result-section {
   background: white;
-  padding: 10px;
+  padding: 16px;
   border-radius: 8px;
+  margin-bottom: 20px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  overflow-x: auto;
-  margin: 15px 0;
 }
 
-#timeline-canvas {
-  background: #f9fafb;
-  display: block;
-  border: 1px solid #e5e7eb;
-  width: 100%;
-  height: 60px;
-}
-
-/* 解码结果显示 */
-.decoded {
-  font-size: 24px;
-  font-weight: bold;
-  margin: 8px 0;
+.result-section h3 {
+  margin-bottom: 12px;
   color: #1e3a8a;
 }
 
-.sequence {
-  font-family: monospace;
-  color: #4b5563;
-  margin-bottom: 15px;
-}
-
-/* 比对结果 */
 #comparison-output {
   font-family: monospace;
   font-size: 20px;
@@ -204,39 +162,17 @@ h1 {
   margin-top: 10px;
 }
 
-/* 响应式 */
 @media (max-width: 600px) {
   .info-panel {
     flex-direction: column;
     align-items: flex-start;
   }
   
-  #wpm-slider, #tolerance-slider, #frequency-input {
+  #wpm-slider, #frequency-input {
     width: 100px;
   }
   
   .play-controls {
     flex-direction: column;
   }
-}
-.mode-toggle {
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
-  margin: 15px 0;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.mode-toggle label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
-.transmit-section {
-  margin: 15px 0;
 }

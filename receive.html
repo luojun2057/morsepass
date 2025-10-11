@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>摩尔斯码听抄训练</title>
-  <link rel="stylesheet" href="receive.css?v=7" />
+  <title>摩尔斯码听抄练习</title>
+  <link rel="stylesheet" href="receive.css?v=2" />
 </head>
 <body>
   <div class="container">
-    <h1>摩尔斯码听抄训练</h1>
+    <h1>摩尔斯码听抄练习</h1>
     
     <div class="info-panel">
       <div>
@@ -17,51 +17,24 @@
         <span id="wpm-value">20</span> WPM
       </div>
       <div>
-        容差: 
-        <input type="range" id="tolerance-slider" min="0" max="50" value="25" />
-        <span id="tolerance-value">25</span>%
-      </div>
-      <div>
-        音频: 
+        音频频率: 
         <input type="number" id="frequency-input" min="350" max="800" value="600" style="width:60px;"> Hz
-        <button id="set-key-btn">设置按键</button> <!-- 新增 -->
       </div>
       <button id="back-btn">返回主页面</button>
     </div>
 
     <div class="input-section">
-      <label>粘贴原文（支持字母、数字、空格）:</label>
-      <!-- 关键修复：确保 textarea 允许空格 -->
-      <textarea id="source-text" rows="3" placeholder="例如: SOS HELP PLEASE"></textarea>
+      <label>粘贴原文（支持大段文本，仅字母/数字/空格有效）:</label>
+      <textarea id="source-text" rows="4" placeholder="例如: SOS HELP PLEASE SEND ASSISTANCE"></textarea>
       <div class="play-controls">
         <button id="play-btn">播放摩尔斯码</button>
-        <button id="stop-btn" disabled>停止</button>
+        <button id="stop-btn" disabled>停止播放</button>
       </div>
     </div>
 
-    <div class="mode-toggle">
-      <label>
-        <input type="radio" name="input-mode" value="keyboard" checked> 键盘输入
-      </label>
-      <label>
-        <input type="radio" name="input-mode" value="transmit"> 跟发输入
-      </label>
-    </div>
-
-    <div id="keyboard-input-section" class="transcribe-section">
-      <label>听抄输入（直接打字）:</label>
-      <textarea id="user-input" rows="3" placeholder="听到什么就输入什么..."></textarea>
-    </div>
-
-    <div id="transmit-section" class="transmit-section" style="display:none;">
-      <div id="transmit-area" class="transmit-area">
-        <p>● 按住此处 或 按下设定按键 跟发</p>
-      </div>
-      <div class="canvas-container">
-        <canvas id="timeline-canvas" width="800" height="60"></canvas>
-      </div>
-      <div class="decoded" id="decoded-output">-</div>
-      <div class="sequence" id="sequence-output">-</div>
+    <div class="transcribe-section">
+      <label>听抄输入（直接打字或粘贴）:</label>
+      <textarea id="user-input" rows="4" placeholder="听到什么就输入什么..."></textarea>
     </div>
 
     <div class="result-section">
@@ -73,10 +46,10 @@
     </div>
 
     <div class="hint">
-      <p>💡 按键默认为「空格」，可点击「设置按键」修改</p>
+      <p>💡 提示：漏抄显示为 <span style="color:red;">-</span>，错抄显示为 <span style="color:red;">红色字符</span></p>
     </div>
   </div>
 
-  <script src="receive.js?v=7"></script>
+  <script src="receive.js?v=2"></script>
 </body>
 </html>

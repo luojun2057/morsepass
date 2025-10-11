@@ -219,3 +219,24 @@ h1 {
     flex-direction: column;
   }
 }
+.mode-toggle {
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 15px 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.mode-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.transmit-section {
+  margin: 15px 0;
+}

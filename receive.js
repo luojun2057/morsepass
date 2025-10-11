@@ -1,7 +1,7 @@
 // =============== 配置 ===============
 const MAX_HISTORY_MS = 15000;
 const DEFAULT_WPM = 20;
-const DEFAULT_TOLERANCE = 25; // 新增
+const DEFAULT_TOLERANCE = 25;
 const DEFAULT_FREQUENCY = 600;
 
 // =============== 摩尔斯码字典 ===============
@@ -22,17 +22,17 @@ const morseToChar = {
 
 // =============== 状态 ===============
 let currentWPM = DEFAULT_WPM;
-let tolerancePercent = DEFAULT_TOLERANCE; // 新增
+let tolerancePercent = DEFAULT_TOLERANCE;
 let audioFrequency = DEFAULT_FREQUENCY;
+let isPlaying = false;
+let inputMode = 'keyboard'; // 'keyboard' or 'transmit'
+
+// ====== 跟发状态 ======
 let signals = [];
 let decodedText = "";
 let currentSequence = "";
 let lastSignalEnd = null;
-let isPlaying = false;
-let isTransmitMode = false;
 let gapTimer = null;
-
-// ====== 音频控制 ======
 let audioContext = null;
 let currentOscillator = null;
 let currentGainNode = null;
@@ -41,17 +41,21 @@ let currentGainNode = null;
 let canvas, ctx;
 const wpmSlider = document.getElementById('wpm-slider');
 const wpmValueEl = document.getElementById('wpm-value');
-const toleranceSlider = document.getElementById('tolerance-slider'); // 新增
-const toleranceValueEl = document.getElementById('tolerance-value'); // 新增
+const toleranceSlider = document.getElementById('tolerance-slider');
+const toleranceValueEl = document.getElementById('tolerance-value');
 const frequencyInput = document.getElementById('frequency-input');
 const sourceText = document.getElementById('source-text');
 const playBtn = document.getElementById('play-btn');
 const stopBtn = document.getElementById('stop-btn');
 const backBtn = document.getElementById('back-btn');
+const userInput = document.getElementById('user-input');
+const transmitArea = document.getElementById('transmit-area');
 const decodedOutput = document.getElementById('decoded-output');
 const sequenceOutput = document.getElementById('sequence-output');
 const comparisonOutput = document.getElementById('comparison-output');
 const accuracyRateEl = document.getElementById('accuracy-rate');
+const keyboardSection = document.getElementById('keyboard-input-section');
+const transmitSection = document.getElementById('transmit-section');
 
 // =============== 初始化 ===============
 function init() {
@@ -61,19 +65,17 @@ function init() {
   updateCanvasSize();
   window.addEventListener('resize', updateCanvasSize);
   
-  // 绑定控件
+  // 控件绑定
   wpmSlider.addEventListener('input', (e) => {
     currentWPM = parseInt(e.target.value);
     wpmValueEl.textContent = currentWPM;
   });
   
-  // ===== 新增：容差滑块 =====
   toleranceSlider.addEventListener('input', (e) => {
     tolerancePercent = parseInt(e.target.value);
     toleranceValueEl.textContent = tolerancePercent;
-    redrawTimeline(); // 重新着色
+    if (inputMode === 'transmit') redrawTimeline();
   });
-  // ========================
   
   frequencyInput.addEventListener('change', (e) => {
     let freq = parseInt(e.target.value);
@@ -83,11 +85,33 @@ function init() {
     frequencyInput.value = freq;
   });
   
-  playBtn.addEventListener('click', startPractice);
-  stopBtn.addEventListener('click', stopPractice);
+  // ===== 输入模式切换 =====
+  const modeRadios = document.querySelectorAll('input[name="input-mode"]');
+  modeRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      inputMode = e.target.value;
+      if (inputMode === 'keyboard') {
+        keyboardSection.style.display = 'block';
+        transmitSection.style.display = 'none';
+      } else {
+        keyboardSection.style.display = 'none';
+        transmitSection.style.display = 'block';
+        enableTransmitArea();
+      }
+      // 重置状态
+      resetTransmitState();
+      comparisonOutput.innerHTML = '';
+      accuracyRateEl.textContent = '-';
+    });
+  });
+  // ========================
+  
+  playBtn.addEventListener('click', startPlayback);
+  stopBtn.addEventListener('click', stopPlayback);
   backBtn.addEventListener('click', () => window.location.href = 'index.html');
   
-  enableTransmitArea();
+  // 键盘输入监听
+  userInput.addEventListener('input', checkAnswer);
 }
 
 function updateCanvasSize() {
@@ -95,7 +119,7 @@ function updateCanvasSize() {
   const container = canvas.parentElement;
   canvas.width = Math.max(container.clientWidth, 800);
   canvas.height = 60;
-  redrawTimeline();
+  if (inputMode === 'transmit') redrawTimeline();
 }
 
 // =============== 播放控制 ===============
@@ -107,30 +131,23 @@ function playTone(durationMs, frequency) {
   if (!audioContext) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   }
-  
   const oscillator = audioContext.createOscillator();
   const gainNode = audioContext.createGain();
-  
   oscillator.type = 'sine';
   oscillator.frequency.value = frequency;
   gainNode.gain.value = 0.3;
-  
   oscillator.connect(gainNode);
   gainNode.connect(audioContext.destination);
-  
   oscillator.start();
   oscillator.stop(audioContext.currentTime + durationMs / 1000);
-  
   return new Promise(resolve => setTimeout(resolve, durationMs));
 }
 
 async function playMorse(text) {
   const D = wpmToDitDuration(currentWPM);
   const freq = audioFrequency;
-  
   for (let i = 0; i < text.length; i++) {
     if (!isPlaying) break;
-    
     const char = text[i];
     if (char === ' ') {
       await new Promise(resolve => setTimeout(resolve, 7 * D));
@@ -148,16 +165,38 @@ async function playMorse(text) {
   }
 }
 
-// =============== 发报区控制 ===============
+function startPlayback() {
+  if (isPlaying) return;
+  const text = sourceText.value.toUpperCase().trim();
+  if (!text) {
+    alert("请输入原文！");
+    return;
+  }
+  isPlaying = true;
+  playBtn.disabled = true;
+  stopBtn.disabled = false;
+  comparisonOutput.innerHTML = '';
+  accuracyRateEl.textContent = '-';
+  playMorse(text).finally(() => {
+    isPlaying = false;
+    playBtn.disabled = false;
+    stopBtn.disabled = true;
+  });
+}
+
+function stopPlayback() {
+  isPlaying = false;
+  playBtn.disabled = false;
+  stopBtn.disabled = true;
+}
+
+// =============== 跟发逻辑 ===============
 function enableTransmitArea() {
-  const transmitArea = document.getElementById('transmit-area');
-  if (!transmitArea) return;
-  
   let isSignalActive = false;
   let signalStartTime = 0;
   
   function startSignal() {
-    if (!isTransmitMode || isSignalActive) return;
+    if (!isPlaying || isSignalActive) return;
     isSignalActive = true;
     signalStartTime = performance.now();
     startSignalSound();
@@ -171,27 +210,35 @@ function enableTransmitArea() {
     processSignal(duration);
   }
   
+  // 移除旧监听器
+  transmitArea.removeEventListener('mousedown', startSignal);
+  transmitArea.removeEventListener('mouseup', endSignal);
+  transmitArea.removeEventListener('mouseleave', endSignal);
+  
   transmitArea.addEventListener('mousedown', startSignal);
   transmitArea.addEventListener('mouseup', endSignal);
   transmitArea.addEventListener('mouseleave', endSignal);
   
-  window.addEventListener('keydown', (e) => {
+  window.removeEventListener('keydown', globalKeyDown);
+  window.removeEventListener('keyup', globalKeyUp);
+  window.addEventListener('keydown', globalKeyDown);
+  window.addEventListener('keyup', globalKeyUp);
+  
+  function globalKeyDown(e) {
     if (e.code === 'Space') {
       e.preventDefault();
       startSignal();
     }
-  });
+  }
   
-  window.addEventListener('keyup', (e) => {
+  function globalKeyUp(e) {
     if (e.code === 'Space') {
       endSignal();
     }
-  });
+  }
 }
 
-// =============== 音频函数 ===============
 function startSignalSound() {
-  if (!isTransmitMode) return;
   if (!audioContext) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   }
@@ -216,7 +263,6 @@ function stopSignalSound() {
   }
 }
 
-// =============== 核心逻辑（复用 script.txt） ===============
 function processSignal(duration) {
   if (gapTimer) {
     clearTimeout(gapTimer);
@@ -227,12 +273,10 @@ function processSignal(duration) {
   const isDot = duration < D * 2;
   const type = isDot ? 'dot' : 'dash';
   
-  // ===== 节奏准确性判断（关键）=====
   const tolerance = tolerancePercent / 100;
   const ideal = type === 'dot' ? D : 3 * D;
   const deviation = Math.abs(duration - ideal) / ideal;
   const accurate = deviation <= tolerance;
-  // ================================
   
   const now = performance.now();
   const signalEnd = now;
@@ -264,14 +308,13 @@ function processSignal(duration) {
     type,
     start: now - duration,
     duration,
-    accurate,        // 使用实际准确性
+    accurate,
     deviation,
     ideal
   });
   
   lastSignalEnd = signalEnd;
   
-  // 启动7D超时
   gapTimer = setTimeout(() => {
     if (currentSequence) {
       const char = morseToChar[currentSequence] || '?';
@@ -298,7 +341,7 @@ function updateDisplay() {
 }
 
 function redrawTimeline() {
-  if (!ctx) return;
+  if (!ctx || inputMode !== 'transmit') return;
   const width = canvas.width;
   const height = canvas.height;
   ctx.clearRect(0, 0, width, height);
@@ -310,24 +353,44 @@ function redrawTimeline() {
     const x = (sig.start - startTime) * pixelsPerMs;
     const w = sig.duration * pixelsPerMs;
     if (w < 1) continue;
-    // ===== 根据节奏准确性着色 =====
     ctx.fillStyle = sig.accurate ? '#10b981' : '#ef4444';
     ctx.fillRect(x, 10, w, height - 20);
   }
 }
 
-// =============== 顺序比对逻辑（LCWO 风格） ===============
+// =============== 重置跟发状态 ===============
+function resetTransmitState() {
+  signals = [];
+  decodedText = "";
+  currentSequence = "";
+  lastSignalEnd = null;
+  if (gapTimer) clearTimeout(gapTimer);
+  gapTimer = null;
+  if (decodedOutput) decodedOutput.textContent = "-";
+  if (sequenceOutput) sequenceOutput.textContent = "-";
+  if (inputMode === 'transmit') redrawTimeline();
+}
+
+// =============== 比对逻辑（支持空格）===============
 function normalizeChar(c) {
+  // 修复：明确允许空格
+  if (c === ' ') return ' ';
   const upper = c.toUpperCase();
-  return /^[A-Z0-9\s]$/.test(upper) ? upper : null;
+  return /^[A-Z0-9]$/.test(upper) ? upper : null;
 }
 
 function checkAnswer() {
-  const sourceRaw = sourceText.value;
-  const userRaw = decodedText + (currentSequence ? '?' : '');
+  let userRaw = '';
+  if (inputMode === 'keyboard') {
+    userRaw = userInput.value;
+  } else {
+    userRaw = decodedText + (currentSequence ? '?' : '');
+  }
   
+  const sourceRaw = sourceText.value;
   if (!sourceRaw.trim()) return;
   
+  // 提取有效字符（保留空格）
   const sourceChars = [];
   for (let i = 0; i < sourceRaw.length; i++) {
     const norm = normalizeChar(sourceRaw[i]);
@@ -382,51 +445,6 @@ function checkAnswer() {
   const accuracy = Math.round((correctCount / sourceChars.length) * 100);
   if (comparisonOutput) comparisonOutput.innerHTML = html;
   if (accuracyRateEl) accuracyRateEl.textContent = accuracy;
-}
-
-// =============== 练习控制 ===============
-function startPractice() {
-  if (isPlaying) return;
-  
-  const text = sourceText.value.toUpperCase().trim();
-  if (!text) {
-    alert("请输入原文！");
-    return;
-  }
-  
-  // 重置状态
-  signals = [];
-  decodedText = "";
-  currentSequence = "";
-  lastSignalEnd = null;
-  if (gapTimer) clearTimeout(gapTimer);
-  
-  comparisonOutput.innerHTML = '';
-  accuracyRateEl.textContent = '-';
-  
-  isPlaying = true;
-  isTransmitMode = true;
-  playBtn.disabled = true;
-  stopBtn.disabled = false;
-  
-  updateDisplay();
-  redrawTimeline();
-  
-  // 开始播放
-  playMorse(text).finally(() => {
-    isPlaying = false;
-    isTransmitMode = false;
-    playBtn.disabled = false;
-    stopBtn.disabled = true;
-  });
-}
-
-function stopPractice() {
-  isPlaying = false;
-  isTransmitMode = false;
-  playBtn.disabled = false;
-  stopBtn.disabled = true;
-  if (gapTimer) clearTimeout(gapTimer);
 }
 
 // =============== 启动 ===============

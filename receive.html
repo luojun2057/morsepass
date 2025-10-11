@@ -3,18 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>摩尔斯码听抄练习</title>
-  <link rel="stylesheet" href="receive.css?v=2" />
+  <title>摩尔斯码听抄跟发训练</title>
+  <link rel="stylesheet" href="receive.css?v=5" />
 </head>
 <body>
   <div class="container">
-    <h1>摩尔斯码听抄练习</h1>
+    <h1>摩尔斯码听抄跟发训练</h1>
     
     <div class="info-panel">
       <div>
         速度: 
         <input type="range" id="wpm-slider" min="10" max="50" value="20" />
         <span id="wpm-value">20</span> WPM
+      </div>
+      <div>
+        容差: 
+        <input type="range" id="tolerance-slider" min="0" max="50" value="25" />
+        <span id="tolerance-value">25</span>%
       </div>
       <div>
         音频频率: 
@@ -24,20 +29,29 @@
     </div>
 
     <div class="input-section">
-      <label>粘贴原文（支持大段文本，仅字母/数字/空格有效）:</label>
-      <textarea id="source-text" rows="4" placeholder="例如: SOS HELP PLEASE SEND ASSISTANCE"></textarea>
+      <label>粘贴原文（仅字母/数字/空格）:</label>
+      <textarea id="source-text" rows="3" placeholder="例如: SOS HELP"></textarea>
       <div class="play-controls">
-        <button id="play-btn">播放摩尔斯码</button>
-        <button id="stop-btn" disabled>停止播放</button>
+        <button id="play-btn">播放并开始跟发</button>
+        <button id="stop-btn" disabled>停止</button>
       </div>
     </div>
 
-    <div class="transcribe-section">
-      <label>听抄输入（直接打字或粘贴）:</label>
-      <textarea id="user-input" rows="4" placeholder="听到什么就输入什么..."></textarea>
+    <!-- 发报区 -->
+    <div id="transmit-area" class="transmit-area">
+      <p>● 按住此处 或 按下空格键 跟发摩尔斯码</p>
+    </div>
+
+    <!-- 可视化时间轴 -->
+    <div class="canvas-container">
+      <canvas id="timeline-canvas" width="800" height="60"></canvas>
     </div>
 
     <div class="result-section">
+      <h3>跟发结果</h3>
+      <div class="decoded" id="decoded-output">-</div>
+      <div class="sequence" id="sequence-output">-</div>
+      
       <h3>比对结果</h3>
       <div id="comparison-output"></div>
       <div class="stats">
@@ -46,10 +60,10 @@
     </div>
 
     <div class="hint">
-      <p>💡 提示：漏抄显示为 <span style="color:red;">-</span>，错抄显示为 <span style="color:red;">红色字符</span></p>
+      <p>💡 绿色=节奏准确，红色=节奏偏差。比对仅检查内容正确性。</p>
     </div>
   </div>
 
-  <script src="receive.js?v=2"></script>
+  <script src="receive.js?v=5"></script>
 </body>
 </html>

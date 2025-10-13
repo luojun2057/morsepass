@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>摩尔斯码听抄练习</title>
-    <link rel="stylesheet" href="receive.css">
+    <title>摩尔斯码跟发练习</title>
+    <link rel="stylesheet" href="follow.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 </head>
 <body>
     <div class="container">
-        <h1>摩尔斯码听抄练习</h1>
+        <h1>摩尔斯码跟发练习</h1>
 
         <div class="info-panel">
             <div>
@@ -31,15 +31,29 @@
             <textarea id="source-text" rows="4" placeholder="例如: SOS HELP PLEASE SEND ASSISTANCE"></textarea>
             <div class="play-controls">
                 <button id="play-btn">播放摩尔斯码</button>
-                <span id="countdown-display" style="display: none; margin: 0 10px; font-weight: bold; color: #1e40af;"></span> <!-- 新增倒计时显示 -->
-                <button id="stop-btn" disabled>停止播放</button>
+                <span id="countdown-display" style="display: none; margin: 0 10px; font-weight: bold; color: #1e40af;"></span> <!-- 倒计时显示在按钮旁边 -->
+                <button id="stop-btn" disabled>停止练习</button>
+                <button id="clear-btn">清空</button>
             </div>
-            <!-- <div id="countdown-display" style="text-align: center; margin-top: 10px; font-weight: bold; color: #1e40af; display: none;">准备开始... 5s</div> --> <!-- 移除此行 -->
         </div>
 
-        <div class="transcribe-section">
-            <label>听抄输入（直接打字或粘贴）:</label>
-            <textarea id="user-input" rows="4" placeholder="听到什么就输入什么..."></textarea>
+        <!-- 固定发报区 -->
+        <div id="transmit-area" class="transmit-area">
+            <p id="transmit-hint">● 按下设定按键或点击此处发报</p>
+        </div>
+
+        <div class="stats-panel">
+            <div>实时速度: <span id="real-wpm">-</span> WPM</div>
+            <div>节奏准确率: <span id="accuracy">-</span>%</div>
+        </div>
+
+        <div class="result-area">
+            <div class="decoded" id="decoded-output">-</div>
+            <div class="sequence" id="sequence-output">-</div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="timeline-canvas" width="800" height="60"></canvas>
         </div>
 
         <div class="result-section">
@@ -51,11 +65,11 @@
         </div>
 
         <div class="hint">
-            <p>💡 提示：漏抄显示为 <span style="color:red;">-</span>，错抄显示为 <span style="color:red;">红色字符</span></p>
+            <p>💡 提示：漏抄显示为 <span style="color:red;">-</span>，错抄显示为 <span style="color:green;">绿色字符</span>，多余输入显示为 <span style="color:orange;">[+N]</span></p>
         </div>
 
     </div>
 
-    <script src="receive.js"></script> <!-- 假设 receive.js 已更新 -->
+    <script src="follow.js"></script>
 </body>
 </html>

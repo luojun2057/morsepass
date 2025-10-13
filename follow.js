@@ -258,7 +258,7 @@ function redrawTimeline() {
     }
 }
 
-// =============== 实时比对逻辑 (类似 receive.js 的 checkAnswer) ===============
+// =============== 实时比对逻辑 (类似 receive.js 的 checkAnswer, 但忽略空格) ===============
 function performRealTimeComparison() {
     // 只有在有原文时才进行比对
     if (!originalDecodedText) {
@@ -267,7 +267,7 @@ function performRealTimeComparison() {
         return;
     }
 
-    // 使用与 receive.js 类似的逻辑进行比对
+    // 使用与 receive.js 类似的逻辑进行比对，但忽略空格
     const sourceRaw = originalDecodedText; // 使用原始解码文本作为标准
     const userRaw = decodedText; // 使用用户实时解码的文本
 
@@ -277,21 +277,24 @@ function performRealTimeComparison() {
         return;
     }
 
-    // 提取有效字符序列（保留原始索引）
+    // 提取有效字符序列（保留原始索引），**忽略空格**
     const sourceChars = [];
     for (let i = 0; i < sourceRaw.length; i++) {
         const norm = normalizeChar(sourceRaw[i]);
-        if (norm !== null) {
+        // **修改点：不添加空格字符**
+        if (norm !== null && norm !== ' ') { // 添加 norm !== ' ' 的条件
             sourceChars.push({
                 char: sourceRaw[i], // 原始字符（保留大小写）
-                norm: norm          // 标准化字符（用于比对）
+                norm: norm,         // 标准化字符（用于比对）
+                originalIndex: i    // 记录在原始字符串中的索引，用于最终HTML构建
             });
         }
     }
     const userChars = [];
     for (let i = 0; i < userRaw.length; i++) {
         const norm = normalizeChar(userRaw[i]);
-        if (norm !== null) {
+        // **修改点：不添加空格字符**
+        if (norm !== null && norm !== ' ') { // 添加 norm !== ' ' 的条件
             userChars.push({
                 char: userRaw[i],
                 norm: norm
@@ -305,7 +308,7 @@ function performRealTimeComparison() {
         return;
     }
 
-    // 顺序单向匹配
+    // 顺序单向匹配 (与 receive.js 一致)
     const matched = new Array(sourceChars.length).fill(false);
     let srcIndex = 0;
     let correctCount = 0;
@@ -325,17 +328,31 @@ function performRealTimeComparison() {
     }
 
     // 构建可视化输出
+    // **修改点：这里需要根据原始 sourceRaw 字符串来构建 HTML**
     let html = '';
-    for (let i = 0; i < sourceChars.length; i++) {
-        if (matched[i]) {
-            const c = sourceChars[i].char;
-            if (c === ' ') {
-                html += '␣'; // 显示空格符号
-            } else {
-                html += `<span style="color:green;">${c}</span>`; // 正确字符显示为绿色
-            }
+    let srcCharIndex = 0; // 指向 sourceRaw 的索引
+    for (let i = 0; i < sourceRaw.length; i++) {
+        const rawChar = sourceRaw[i];
+        if (rawChar === ' ') {
+            // 原文中的空格直接显示为 ␣
+            html += '␣';
         } else {
-            html += '-'; // 漏抄显示为 '-'
+            // 检查这个非空格字符是否在过滤后的 sourceChars 中被匹配
+            // 需要找到 sourceChars 中对应原始索引 i 的项
+            // 由于我们只过滤了空格，sourceChars 的顺序与 sourceRaw 中非空格字符的顺序一致
+            // 我们可以遍历 sourceChars，找到 originalIndex 等于 i 的项
+            let isCurrentCharMatched = false;
+            for (let j = 0; j < sourceChars.length; j++) {
+                if (sourceChars[j].originalIndex === i) {
+                    isCurrentCharMatched = matched[j];
+                    break;
+                }
+            }
+            if (isCurrentCharMatched) {
+                html += `<span style="color:green;">${rawChar}</span>`;
+            } else {
+                html += '-'; // 漏抄
+            }
         }
     }
     // 处理用户多余输入
@@ -566,12 +583,9 @@ function bindGlobalKeys() {
 
 
 // =============== 练习控制 ===============
-function startFollowPractice() { // <--- 移除了 async，因为 await 不在它内部
+function startFollowPractice() { // <--- 移除 async
     // 关键修复：检查状态时，必须确保倒计时期间和原文播放期间都不能再次开始
-    if (isPlayingOriginal || countdownTimer) {
-        console.log("练习已在进行中或倒计时期间，无法开始。isPlayingOriginal:", isPlayingOriginal, ", countdownTimer:", !!countdownTimer);
-        return;
-    }
+    if (isPlayingOriginal || countdownTimer) return; // 防止重复开始或在倒计时期间开始
 
     const inputText = sourceTextEl.value.toUpperCase().trim();
     if (!inputText) {
@@ -603,7 +617,7 @@ function startFollowPractice() { // <--- 移除了 async，因为 await 不在�
         countdownDisplayEl.textContent = `准备开始... ${countdown}s`;
     }
 
-    countdownTimer = setInterval(() => {
+    countdownTimer = setInterval(() => { // <--- setInterval 回调函数
         countdown--;
         if (countdown > 0) {
             if (countdownDisplayEl) countdownDisplayEl.textContent = `准备开始... ${countdown}s`;
@@ -611,7 +625,8 @@ function startFollowPractice() { // <--- 移除了 async，因为 await 不在�
             // 倒计时结束，清除定时器
             clearInterval(countdownTimer);
             countdownTimer = null; // 清除倒计时ID
-            if (countdownDisplayEl) countdownDisplayEl.textContent = '开始!'; // 显示开始
+
+            if (countdownDisplayEl) countdownDisplayEl.textContent = '开始!';
 
             // 在倒计时结束后，设置状态并准备播放
             isPlayingOriginal = true; // 设置播放状态
@@ -628,23 +643,38 @@ function startFollowPractice() { // <--- 移除了 async，因为 await 不在�
 
             // 隐藏倒计时提示
             if (countdownDisplayEl) {
-                setTimeout(() => { // 使用 setTimeout 延迟隐藏，让用户看到 "开始!"
+                setTimeout(() => { // 延迟隐藏，让用户看到 "开始!"
                     countdownDisplayEl.style.display = 'none';
                     countdownDisplayEl.textContent = ''; // 清空文本
                 }, 1000); // 1秒后隐藏
             }
 
-            // 在这里调用播放函数，因为当前函数 (startFollowPractice) 是 async 的
-            // 或者，将播放逻辑封装成一个独立的 async 函数并在下面调用
-            startPlaybackAfterCountdown(); // 推荐方式：封装成独立函数
+            // 获取播放参数
+            const wpm = parseInt(wpmSlider.value);
+            const freq = parseInt(frequencyInput.value);
+
+            // 重置输入框和结果
+            // decodedText = ""; // 不重置，因为 processSignal 会追加
+            // currentSequence = "";
+            // lastSignalEnd = null;
+            // signals = [];
+            // lastSignalEnd = null;
+            // if (gapTimer) { clearTimeout(gapTimer); gapTimer = null; } // 不在这里清理，由 processSignal 或 stopFollowPractice 处理
+            updateDisplay();
+            updateStats();
+            redrawTimeline();
+            performRealTimeComparison(); // 重置比对结果
+
+            // 在这里调用播放函数，因为当前函数 (playMorse) 不是 async 的，但 startPlaybackAfterCountdown 是
+            startPlaybackAfterCountdown(inputText, wpm, freq); // <--- 正确调用，不在 setInterval 回调内使用 await
         }
     }, 1000);
 }
 
 // 新增：封装倒计时后的播放逻辑
-async function startPlaybackAfterCountdown() {
+async function startPlaybackAfterCountdown(text, wpm, freq) {
     try {
-        await playMorseForFollow(originalText, currentWPM, audioFrequency);
+        await playMorseForFollow(text, wpm, freq);
     } catch (e) {
         console.error("播放摩尔斯码时出错:", e);
         // 重置状态以确保按钮可用

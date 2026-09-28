@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTimeline } from '@/core/morse/timeline'
+import { buildTimeline, computeTimelineWindow } from '@/core/morse/timeline'
 
 describe('buildTimeline', () => {
   it('标准时序：ET 同词内字符间隙', () => {
@@ -58,5 +58,52 @@ describe('buildTimeline', () => {
     expect(tl.events).toEqual([])
     expect(tl.charSpans).toEqual([])
     expect(tl.totalMs).toBe(0)
+  })
+})
+
+describe('computeTimelineWindow', () => {
+  it('无记录：窗口 [0, tail]', () => {
+    const w = computeTimelineWindow([], 10_000, 1_500)
+    expect(w.startMs).toBe(0)
+    expect(w.endMs).toBe(1_500)
+  })
+
+  it('少量输入：窗口从 0 起到最后符号结束 + 留白', () => {
+    const w = computeTimelineWindow([{ t: 5000, durationMs: 100 }], 10_000, 1_500)
+    expect(w.endMs).toBe(5100 + 1_500)
+    expect(w.startMs).toBe(0)
+  })
+
+  it('输入超出窗口：右端跟随最后符号，左端裁剪', () => {
+    const w = computeTimelineWindow([{ t: 50_000, durationMs: 100 }], 10_000, 1_500)
+    expect(w.endMs).toBe(51_600)
+    expect(w.startMs).toBe(41_600)
+  })
+
+  it('冻结语义：窗口只由记录决定，与当前时间无关（两次调用结果一致）', () => {
+    const recs = [
+      { t: 1000, durationMs: 80 },
+      { t: 2000, durationMs: 240 },
+    ]
+    const w1 = computeTimelineWindow(recs, 10_000, 1_500)
+    const w2 = computeTimelineWindow(recs, 10_000, 1_500)
+    expect(w1).toEqual(w2)
+    // 停止输入后窗口不再滚动：end 停在最后符号结束 + 留白
+    expect(w1.endMs).toBe(2240 + 1_500)
+  })
+
+  it('窗口宽度 = windowMs（输入足够多时）', () => {
+    const recs = [
+      { t: 0, durationMs: 80 },
+      { t: 20_000, durationMs: 80 },
+    ]
+    const w = computeTimelineWindow(recs, 10_000, 1_500)
+    expect(w.endMs - w.startMs).toBe(10_000)
+  })
+
+  it('自定义 windowMs/tailMs 生效', () => {
+    const w = computeTimelineWindow([{ t: 100, durationMs: 100 }], 5_000, 500)
+    expect(w.endMs).toBe(700)
+    expect(w.startMs).toBe(0)
   })
 })

@@ -191,3 +191,25 @@ export class SessionStats {
 function round1(v: number): number {
   return Math.round(v * 10) / 10
 }
+
+/** 对照模式结束时的最终正确率（来自全文比对而非逐字符判定） */
+export interface FinalAccuracy {
+  accuracyPct: number
+  charsTotal: number
+  charsCorrect: number
+  weakChars?: WeakChar[]
+}
+
+/**
+ * 用全文比对结果覆盖快照的字符统计字段（节奏统计保留）。
+ * charsTotal 为 0 时 accuracyPct 置 null。
+ */
+export function overrideWithFinal(snap: SessionSnapshot, fin: FinalAccuracy): SessionSnapshot {
+  return {
+    ...snap,
+    charsTotal: fin.charsTotal,
+    charsCorrect: fin.charsCorrect,
+    accuracyPct: fin.charsTotal === 0 ? null : fin.accuracyPct,
+    weakChars: fin.weakChars ?? snap.weakChars,
+  }
+}

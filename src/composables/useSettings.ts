@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   toneHz: 700,
   volume: 0.5,
   displayCase: 'lower',
+  sendMode: 'free',
   noise: { enabled: false, level: 0.15 },
 }
 

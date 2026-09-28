@@ -2,6 +2,9 @@
 
 export type PracticeMode = 'send' | 'receive' | 'follow' | 'koch'
 
+/** 发报页模式：自由发报 / 对照文章发报 */
+export type SendMode = 'free' | 'article'
+
 export interface GlobalSettings {
   /** 输入源配置：鼠标（电键模拟点击）与键盘可同时启用 */
   input: {
@@ -13,6 +16,8 @@ export interface GlobalSettings {
   toneHz: number
   volume: number
   displayCase: 'lower' | 'upper'
+  /** 发报页模式（默认自由发报） */
+  sendMode: SendMode
   /** QRM 噪声开关与电平 */
   noise: { enabled: boolean; level: number }
 }

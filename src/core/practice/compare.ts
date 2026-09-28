@@ -3,6 +3,8 @@
  * 比较前双方统一转大写；空格参与比较。
  */
 
+import type { WeakChar } from '../types'
+
 export type DiffKind = 'match' | 'wrong' | 'missed' | 'extra'
 
 export interface DiffItem {
@@ -137,4 +139,26 @@ export function compareText(reference: string, input: string): CompareResult {
     extraCount,
     accuracyPct: n === 0 ? null : Math.round((correct / n) * 1000) / 10,
   }
+}
+
+/**
+ * 从比对结果聚合弱项字符（正确率 < 80%，按错误率降序，最多 10 个）。
+ * 空格与空白字符不计入。
+ */
+export function weakCharsFromCompare(result: CompareResult): WeakChar[] {
+  const map = new Map<string, { correct: number; total: number }>()
+  for (const it of result.items) {
+    if (it.kind !== 'match' && it.kind !== 'wrong' && it.kind !== 'missed') continue
+    const ch = (it.expected ?? '').toUpperCase()
+    if (!ch.trim()) continue
+    const e = map.get(ch) ?? { correct: 0, total: 0 }
+    e.total++
+    if (it.kind === 'match') e.correct++
+    map.set(ch, e)
+  }
+  return [...map.entries()]
+    .map(([ch, e]) => ({ ch, correct: e.correct, total: e.total }))
+    .filter((w) => w.correct / w.total < 0.8)
+    .sort((a, b) => a.correct / a.total - b.correct / b.total)
+    .slice(0, 10)
 }

@@ -14,7 +14,13 @@ import {
   createTouchSource,
   type KeyInputSource,
 } from '@/core/input/keying'
-import { SessionStats, type SessionSnapshot, type SymbolRecord } from '@/core/practice/stats'
+import {
+  SessionStats,
+  overrideWithFinal,
+  type FinalAccuracy,
+  type SessionSnapshot,
+  type SymbolRecord,
+} from '@/core/practice/stats'
 import { buildRecord, loadHistory, pushHistory } from '@/core/storage/persist'
 import { usePageTiming, useSettings } from './useSettings'
 import type { GlobalSettings, PracticeMode, TimingSettings } from '@/core/types'
@@ -42,8 +48,13 @@ export interface UseKeyerOptions {
    * 自定义字符正误判定（跟发模式比对原文）。缺省用"该字符所有符号均节奏准确"。
    */
   judgeChar?: (ch: string) => boolean
-  /** 素材类型标记（写入历史记录） */
-  material?: string
+  /** 素材类型标记（写入历史记录），可为静态串或随会话变化的取值函数 */
+  material?: string | (() => string)
+  /**
+   * 对照模式结束时的最终正确率覆盖：全文比对（LCS）结果优先于逐字符判定。
+   * 返回 null 表示不覆盖（如素材为空）。
+   */
+  finalize?: (decoded: string) => FinalAccuracy | null
   /** 不写入历史（如试键） */
   silent?: boolean
 }
@@ -164,12 +175,19 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
     audio.silence()
 
     stats.end(performance.now())
-    const snap = stats.snapshot(performance.now())
+    let snap = stats.snapshot(performance.now())
+
+    // 对照模式：全文比对结果覆盖逐字符统计（保留节奏统计）
+    const fin = options.finalize?.(decoded.value) ?? null
+    if (fin) snap = overrideWithFinal(snap, fin)
+
     snapshot.value = snap
     const hints = stats.analyzeRhythm(timing.wpmChar)
 
     let saved = false
     if (!options.silent) {
+      const material =
+        typeof options.material === 'function' ? options.material() : options.material
       const record = buildRecord({
         mode: options.mode,
         wpmChar: timing.wpmChar,
@@ -181,7 +199,7 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
         accuracyPct: snap.accuracyPct,
         symbolAccuracyPct: snap.symbolAccuracyPct,
         weakChars: snap.weakChars,
-        material: options.material,
+        material,
       })
       const list = pushHistory(record)
       saved = list.length > 0 && list[0].id === record.id
@@ -189,6 +207,11 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
     }
 
     report.value = { snapshot: snap, hints, saved }
+  }
+
+  /** 清空实时解码流（不影响统计与历史） */
+  function clearDecoded(): void {
+    decoded.value = ''
   }
 
   onBeforeUnmount(() => {
@@ -210,5 +233,6 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
     settings,
     start,
     stop,
+    clearDecoded,
   }
 }

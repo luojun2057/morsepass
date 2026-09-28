@@ -2,16 +2,44 @@
 import { computed, ref, watch } from 'vue'
 import { audio, useKeyer } from '@/composables/useKeyer'
 import { useSettings } from '@/composables/useSettings'
+import { compareText, weakCharsFromCompare, type CompareResult } from '@/core/practice/compare'
 import { toDisplayCase } from '@/core/morse/codec'
+import MaterialPicker from '@/components/MaterialPicker.vue'
 import ParamSlider from '@/components/ParamSlider.vue'
+import ResultDiff from '@/components/ResultDiff.vue'
 import TimelineCanvas from '@/components/TimelineCanvas.vue'
 import ReportCard from '@/components/ReportCard.vue'
 import HistoryList from '@/components/HistoryList.vue'
 
 const settings = useSettings()
 const liveArea = ref<HTMLElement | null>(null)
+const materialText = ref('')
 
-const keyer = useKeyer('send', { mode: 'send', touchEl: () => liveArea.value })
+// 发报模式：自由发报 / 对照文章发报
+const mode = computed({
+  get: () => settings.sendMode ?? 'free',
+  set: (v) => {
+    settings.sendMode = v
+  },
+})
+
+const keyer = useKeyer('send', {
+  mode: 'send',
+  touchEl: () => liveArea.value,
+  material: () => (mode.value === 'article' ? 'article' : 'free'),
+  // 对照模式结束时用全文比对（LCS）结果覆盖正确率
+  finalize: (decoded) => {
+    if (mode.value !== 'article' || !materialText.value.trim()) return null
+    const r = compareText(materialText.value, decoded)
+    if (r.total === 0) return null
+    return {
+      accuracyPct: r.accuracyPct ?? 0,
+      charsTotal: r.total,
+      charsCorrect: r.correct,
+      weakChars: weakCharsFromCompare(r),
+    }
+  },
+})
 const { running, pendingMorse, records, snapshot, report, history, timing } = keyer
 
 // 音调/音量即时生效
@@ -33,6 +61,24 @@ const decodedDisp = computed(() => {
   const s = toDisplayCase(keyer.decoded.value, settings.displayCase)
   return s.length > 160 ? s.slice(-160) : s
 })
+
+// 对照模式：实时比对（LCS）与进度
+const articleResult = computed<CompareResult | null>(() => {
+  if (mode.value !== 'article' || !materialText.value.trim()) return null
+  return compareText(materialText.value, keyer.decoded.value)
+})
+const sentCount = computed(() => keyer.decoded.value.length)
+const totalCount = computed(() => materialText.value.length)
+const progressPct = computed(() => {
+  if (totalCount.value === 0 || sentCount.value === 0) return 0
+  return Math.min(100, Math.round((sentCount.value / totalCount.value) * 100))
+})
+const finishedArticle = computed(
+  () =>
+    articleResult.value !== null &&
+    sentCount.value >= totalCount.value &&
+    totalCount.value > 0,
+)
 
 // 鼠标输入模式
 const mouseMode = computed({
@@ -67,7 +113,34 @@ const sendHistory = computed(() => history.value.filter((r) => r.mode === 'send'
       点击「开始练习」后，<b>按住鼠标任意位置</b>（电键模拟点击）或按住配置的键盘按键即可发报：短按为点，长按为划。
     </p>
 
-    <div class="grid-2">
+    <!-- 模式切换（练习中锁定） -->
+    <div class="row" style="margin-bottom: 14px">
+      <div class="tabs" data-testid="send-mode-tabs">
+        <button
+          :class="{ on: mode === 'free' }"
+          :disabled="running"
+          data-testid="mode-free"
+          @click="mode = 'free'"
+        >
+          自由发报
+        </button>
+        <button
+          :class="{ on: mode === 'article' }"
+          :disabled="running"
+          data-testid="mode-article"
+          @click="mode = 'article'"
+        >
+          对照发报
+        </button>
+      </div>
+      <span class="hint" style="margin-left: 10px">
+        {{ mode === 'free' ? '随手发，练手感' : '照着下方文章发报，实时比对正误' }}
+      </span>
+    </div>
+
+    <MaterialPicker v-if="mode === 'article'" v-model="materialText" />
+
+    <div class="grid-2" style="margin-top: 16px">
       <div class="card">
         <p class="card-title">参数设置</p>
         <ParamSlider v-model="timing.wpmChar" label="速度" :min="5" :max="40" unit=" WPM" />
@@ -147,16 +220,60 @@ const sendHistory = computed(() => history.value.filter((r) => r.mode === 'send'
             <span class="v">{{ snapshot?.charsTotal ?? 0 }}</span>
           </span>
         </div>
+        <template v-if="mode === 'article'">
+          <div class="row" style="margin-top: 12px; justify-content: center">
+            <span class="hint">
+              进度 {{ sentCount }} / {{ totalCount || '—' }} 字符
+              <b v-if="finishedArticle && running" style="color: var(--success)">· 已发完全文，可结束练习</b>
+            </span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: progressPct + '%' }" data-testid="article-progress" />
+          </div>
+        </template>
       </div>
     </div>
 
+    <div v-if="mode === 'article' && articleResult" class="card" style="margin-top: 16px">
+      <p class="card-title">实时比对（与原文逐字符对齐）</p>
+      <div class="badges" style="margin-bottom: 10px">
+        <span class="badge">
+          <span class="k">正确率</span>
+          <span class="v" :class="(articleResult.accuracyPct ?? 0) >= 90 ? 'good' : ''" data-testid="article-accuracy">
+            {{ articleResult.accuracyPct == null ? '—' : `${articleResult.accuracyPct}%` }}
+          </span>
+        </span>
+        <span class="badge">
+          <span class="k">漏发</span>
+          <span class="v">{{ articleResult.items.filter((i) => i.kind === 'missed').length }}</span>
+        </span>
+        <span class="badge">
+          <span class="k">多余</span>
+          <span class="v">{{ articleResult.extraCount }}</span>
+        </span>
+      </div>
+      <ResultDiff :result="articleResult" :display-case="settings.displayCase" />
+    </div>
+
     <div ref="liveArea" class="card" style="margin-top: 16px" data-testid="live-area">
-      <p class="card-title">实时发报</p>
+      <div class="row">
+        <p class="card-title">实时发报</p>
+        <button
+          v-if="keyer.decoded.value"
+          class="btn"
+          style="margin-left: auto; padding: 2px 12px"
+          data-testid="clear-decoded"
+          @click="keyer.clearDecoded()"
+        >
+          清空
+        </button>
+      </div>
       <div class="pending-morse" data-testid="pending-morse">{{ pendingMorse || '&nbsp;' }}</div>
       <div class="decode-stream" data-testid="decoded-stream">{{ decodedDisp || '&nbsp;' }}</div>
       <TimelineCanvas :records="records" :running="running" />
       <p class="hint" style="margin: 8px 0 0">
-        时间线只显示最近 10 秒；<span style="color: var(--success)">绿</span> = 节奏在容差内，
+        时间线随最后一次发报定位，停止输入即冻结；
+        <span style="color: var(--success)">绿</span> = 节奏在容差内，
         <span style="color: var(--danger)">红</span> = 超差。
       </p>
     </div>
@@ -181,5 +298,20 @@ const sendHistory = computed(() => history.value.filter((r) => r.mode === 'send'
   margin: 0 0 16px;
   color: var(--text-2);
   font-size: 13px;
+}
+
+.progress-track {
+  margin-top: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s;
 }
 </style>

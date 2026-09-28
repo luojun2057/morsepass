@@ -61,3 +61,34 @@ export function buildTimeline(text: string, wpmChar: number, wpmEff?: number): T
 
   return { events, charSpans, totalMs: t }
 }
+
+/* ------------------------------------------------------------------ */
+/* 发报时间线显示窗口                                                    */
+/* ------------------------------------------------------------------ */
+
+export interface TimelineWindow {
+  startMs: number
+  endMs: number
+}
+
+/**
+ * 计算发报时间线的显示窗口（纯函数，不依赖当前时钟）。
+ *
+ * 窗口右端 = 最后一个符号的结束时刻 + 留白：
+ * - 有新输入时右端随之推进（视觉上滚动）；
+ * - 停止输入后右端不再移动（窗口冻结，已发内容保持在视野内）。
+ * 左端 = max(0, 右端 - windowMs)。
+ */
+export function computeTimelineWindow(
+  records: { t: number; durationMs: number }[],
+  windowMs: number = 10_000,
+  tailMs: number = 1_500,
+): TimelineWindow {
+  let lastEnd = 0
+  for (const r of records) {
+    const e = r.t + r.durationMs
+    if (e > lastEnd) lastEnd = e
+  }
+  const endMs = lastEnd + tailMs
+  return { startMs: Math.max(0, endMs - windowMs), endMs }
+}

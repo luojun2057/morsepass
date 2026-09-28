@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareText } from '@/core/practice/compare'
+import { compareText, weakCharsFromCompare } from '@/core/practice/compare'
 
 describe('compareText', () => {
   it('完全正确', () => {
@@ -63,5 +63,26 @@ describe('compareText', () => {
     expect(r.correct).toBe(7)
     expect(r.accuracyPct).toBe(100)
     expect(r.extraCount).toBe(3)
+  })
+})
+
+describe('weakCharsFromCompare', () => {
+  it('正确率 <80% 的字符进入弱项，空格不计', () => {
+    // 'AABBC' vs 'AACCC'：A 全对；两个 B 全错（LCS 把 got 的末位 C 与 ref 的 C 配对成功，
+    // 中间的 C C 均与 B 配成错字）→ 仅 B 进入弱项
+    const r = compareText('AABBC', 'AACCC')
+    expect(weakCharsFromCompare(r)).toEqual([{ ch: 'B', correct: 0, total: 2 }])
+  })
+
+  it('空格与空白字符不计入弱项', () => {
+    const r = compareText('A B', 'A') // 漏 B 和空格
+    const weak = weakCharsFromCompare(r)
+    expect(weak.find((w) => w.ch === ' ')).toBeUndefined()
+    expect(weak.find((w) => w.ch === 'B')).toBeDefined()
+  })
+
+  it('全部正确返回空数组', () => {
+    const r = compareText('PARIS', 'paris')
+    expect(weakCharsFromCompare(r)).toEqual([])
   })
 })

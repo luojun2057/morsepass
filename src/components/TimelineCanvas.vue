@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computeTimelineWindow } from '@/core/morse/timeline'
 import type { TimelineRecord } from '@/composables/useKeyer'
 
 const props = defineProps<{
@@ -7,8 +8,10 @@ const props = defineProps<{
   running: boolean
 }>()
 
-/** 时间窗口：只渲染最近 10 秒，旧信号滚出视野，画布永不撑高 */
+/** 时间窗口宽度：窗口右端跟随最后一次发报（无输入即冻结），旧信号滚出视野 */
 const WINDOW_MS = 10_000
+/** 最后一个符号结束后的留白 */
+const TAIL_MS = 1_500
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let raf = 0
@@ -30,35 +33,49 @@ function draw(): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, cssW, cssH)
 
-  const now = performance.now()
-  const t0 = now - WINDOW_MS
+  const labelH = 14
+  const plotH = cssH - labelH
 
-  // 每秒网格线
+  // 空状态提示
+  if (props.records.length === 0) {
+    ctx.fillStyle = '#9aa1ab'
+    ctx.font = '13px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('点击「开始练习」后，按住鼠标任意位置发报', cssW / 2, cssH / 2 - 6)
+    ctx.textAlign = 'left'
+    raf = requestAnimationFrame(draw)
+    return
+  }
+
+  // 显示窗口：右端跟随最后一次符号结束，无新输入即冻结
+  const win = computeTimelineWindow(props.records, WINDOW_MS, TAIL_MS)
+  const span = Math.max(1, win.endMs - win.startMs)
+  const x = (t: number): number => ((t - win.startMs) / span) * cssW
+
+  // 每秒网格线（会话秒：从会话开始计）
   ctx.strokeStyle = '#eceef1'
   ctx.lineWidth = 1
   ctx.font = '10px sans-serif'
   ctx.fillStyle = '#9aa1ab'
-  for (let s = Math.ceil(t0 / 1000) * 1000; s <= now; s += 1000) {
-    const x = ((s - t0) / WINDOW_MS) * cssW
+  for (let s = Math.ceil(win.startMs / 1000) * 1000; s <= win.endMs; s += 1000) {
+    const gx = x(s)
     ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x, cssH - 12)
+    ctx.moveTo(gx, 0)
+    ctx.lineTo(gx, plotH)
     ctx.stroke()
-    const secAgo = Math.round((now - s) / 1000)
-    ctx.fillText(secAgo === 0 ? 'now' : `-${secAgo}s`, x + 3, cssH - 2)
+    ctx.fillText(`${Math.round(s / 1000)}s`, gx + 3, cssH - 2)
   }
 
-  // 信号条：dit 短 / dah 长，准确绿 / 超差红
-  const midY = (cssH - 12) / 2
+  // 按压时段色带：条宽 = 按压时长，绿 = 节奏在容差内，红 = 超差
+  const bandH = Math.max(14, plotH * 0.55)
+  const midY = plotH / 2
   for (const r of props.records) {
     const end = r.t + r.durationMs
-    if (end < t0 || r.t > now) continue
-    const x1 = ((r.t - t0) / WINDOW_MS) * cssW
-    const x2 = ((Math.min(end, now) - t0) / WINDOW_MS) * cssW
-    const h = r.sym === 'dit' ? 14 : 30
+    if (end < win.startMs || r.t > win.endMs) continue
+    const x1 = Math.max(0, x(r.t))
+    const x2 = Math.min(cssW, x(end))
     ctx.fillStyle = r.accurate ? '#2e9e5b' : '#d64545'
-    const w = Math.max(2, x2 - x1)
-    ctx.fillRect(x1, midY - h / 2, w, h)
+    ctx.fillRect(x1, midY - bandH / 2, Math.max(2, x2 - x1), bandH)
   }
 
   raf = requestAnimationFrame(draw)
@@ -90,6 +107,10 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.tl-wrap[data-running='true'] {
+  border-color: var(--primary);
 }
 
 .tl-canvas {

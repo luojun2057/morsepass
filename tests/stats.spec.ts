@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SessionStats } from '@/core/practice/stats'
+import { SessionStats, overrideWithFinal } from '@/core/practice/stats'
 
 describe('SessionStats', () => {
   it('整场累计正确率（非滑动窗口）', () => {
@@ -83,5 +83,50 @@ describe('SessionStats', () => {
     s.start(100)
     s.end(500)
     expect(s.snapshot(999_999).durationMs).toBe(400)
+  })
+})
+
+describe('overrideWithFinal', () => {
+  const baseSnap = () => {
+    const s = new SessionStats()
+    s.start(0)
+    s.addChar('A', true)
+    s.addChar('B', false)
+    s.addSymbol('dit', 80, true, 15)
+    return s.snapshot(1000)
+  }
+
+  it('覆盖字符统计，保留节奏统计', () => {
+    const snap = baseSnap()
+    const out = overrideWithFinal(snap, {
+      accuracyPct: 50,
+      charsTotal: 4,
+      charsCorrect: 2,
+    })
+    expect(out.charsTotal).toBe(4)
+    expect(out.charsCorrect).toBe(2)
+    expect(out.accuracyPct).toBe(50)
+    // 节奏统计不受影响
+    expect(out.symbolAccuracyPct).toBe(snap.symbolAccuracyPct)
+    expect(out.rollingAccuracyPct).toBe(snap.rollingAccuracyPct)
+    expect(out.durationMs).toBe(snap.durationMs)
+  })
+
+  it('fin.weakChars 提供时覆盖，否则保留原值', () => {
+    const snap = baseSnap()
+    const weak = [{ ch: 'B', correct: 0, total: 2 }]
+    expect(overrideWithFinal(snap, { accuracyPct: 50, charsTotal: 4, charsCorrect: 2, weakChars: weak }).weakChars).toEqual(weak)
+    expect(overrideWithFinal(snap, { accuracyPct: 50, charsTotal: 4, charsCorrect: 2 }).weakChars).toEqual(snap.weakChars)
+  })
+
+  it('charsTotal 为 0 时 accuracyPct 置 null', () => {
+    const out = overrideWithFinal(baseSnap(), { accuracyPct: 100, charsTotal: 0, charsCorrect: 0 })
+    expect(out.accuracyPct).toBeNull()
+  })
+
+  it('不修改原快照（返回新对象）', () => {
+    const snap = baseSnap()
+    overrideWithFinal(snap, { accuracyPct: 10, charsTotal: 1, charsCorrect: 0 })
+    expect(snap.charsTotal).toBe(2)
   })
 })

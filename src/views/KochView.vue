@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { audio, useKeyer } from '@/composables/useKeyer'
 import { useSettings } from '@/composables/useSettings'
 import { usePlayback } from '@/composables/usePlayback'
@@ -55,6 +55,21 @@ watch(keyer.running, (v) => {
   document.body.classList.toggle('keying', v)
 })
 
+/** 自动评分定时器与会话序号（放弃/重开后旧定时器失效） */
+let gradeTimer: ReturnType<typeof setTimeout> | null = null
+let sessionSeq = 0
+
+function cancelGradeTimer(): void {
+  if (gradeTimer !== null) {
+    clearTimeout(gradeTimer)
+    gradeTimer = null
+  }
+}
+
+onBeforeUnmount(() => {
+  cancelGradeTimer()
+})
+
 /** 开始课程：生成 5 组 × 5 字符并播放（含倒计时 3s 缓冲） */
 function startLesson(): void {
   if (phase.value === 'running') return
@@ -77,8 +92,29 @@ function startLesson(): void {
   judgeIdx.i = 0
 
   keyer.start()
+  const mySeq = ++sessionSeq
   const { totalMs } = playback.play(materialText.value)
-  setTimeout(() => grade(), totalMs + 800)
+  gradeTimer = setTimeout(() => {
+    gradeTimer = null
+    if (sessionSeq === mySeq) grade()
+  }, totalMs + 800)
+}
+
+/** 中途结束：立即停止播放与发报并评分 */
+function stopAndGrade(): void {
+  if (phase.value !== 'running') return
+  cancelGradeTimer()
+  grade()
+}
+
+/** 放弃本轮：停止但不评分、不计入进度 */
+function abortLesson(): void {
+  if (phase.value !== 'running') return
+  cancelGradeTimer()
+  sessionSeq++ // 使旧定时器失效
+  keyer.stop()
+  playback.stop()
+  phase.value = 'idle'
 }
 
 /** 播放结束后自动评分（含 800ms 解码缓冲） */
@@ -143,22 +179,28 @@ function grade(): void {
         <p class="card-title">课程设置</p>
         <ParamSlider v-model="timing.wpmChar" label="字符速度" :min="5" :max="40" unit=" WPM" />
         <ParamSlider v-model="timing.wpmEff" label="有效速度" :min="5" :max="40" unit=" WPM" />
-        <ParamSlider v-model="settings.volume" label="音量" :min="0" :max="100" unit="%" />
+        <ParamSlider v-model="settings.volume" label="音量" :min="0" :max="100" :step="5" unit="%" :scale="100" />
       </div>
       <div class="card">
         <p class="card-title">开始课程</p>
-        <div class="row" style="justify-content: center; padding: 14px 0">
+        <div class="row" style="justify-content: center; padding: 14px 0; gap: 10px">
           <button
+            v-if="phase !== 'running'"
             class="btn btn-primary btn-big"
             data-testid="koch-start"
-            :disabled="phase === 'running'"
             @click="startLesson"
           >
-            {{ phase === 'running' ? '课程进行中…' : '开始本课（听抄）' }}
+            开始本课（听抄）
           </button>
+          <template v-else>
+            <button class="btn btn-danger btn-big" data-testid="koch-stop" @click="stopAndGrade">
+              结束并评分
+            </button>
+            <button class="btn" data-testid="koch-abort" @click="abortLesson">放弃本轮</button>
+          </template>
         </div>
         <p class="hint" style="text-align: center; margin: 0">
-          播放结束后自动评分。也可以边听边在下方案件区跟发（可选）。
+          播放结束自动评分，也可随时「结束并评分」提前收卷。可以边听边在下方案件区跟发（可选）。
         </p>
       </div>
     </div>

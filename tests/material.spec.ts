@@ -77,6 +77,33 @@ describe('material', () => {
     const rng = mulberry32(2)
     expect(generateCharGroups(rng, ['E', 'T'], 0).split(' ')).toHaveLength(1)
   })
+
+  it('article 类型生成大段英文文章（词数下限 20）', () => {
+    const text = generateMaterial(mulberry32(8), { kind: 'article', count: 40 })
+    const words = text.split(' ')
+    expect(words).toHaveLength(40)
+    for (const w of words) expect(COMMON_WORDS).toContain(w)
+    // 同种子复现
+    expect(generateMaterial(mulberry32(8), { kind: 'article', count: 40 })).toBe(text)
+    // 词数下限保护到 20
+    const small = generateMaterial(mulberry32(9), { kind: 'article', count: 3 })
+    expect(small.split(' ')).toHaveLength(20)
+  })
+
+  it('chars 模式支持自定义每组字符数（4 字一组数字）', () => {
+    const text = generateMaterial(mulberry32(6), {
+      kind: 'chars',
+      charSet: '0123456789'.split(''),
+      count: 6,
+      groupLen: 4,
+    })
+    const groups = text.split(' ')
+    expect(groups).toHaveLength(6)
+    for (const g of groups) {
+      expect(g).toHaveLength(4)
+      expect(/^\d{4}$/.test(g)).toBe(true)
+    }
+  })
 })
 
 describe('QSO 模板', () => {

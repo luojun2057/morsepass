@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { compareText, weakCharsFromCompare } from '@/core/practice/compare'
+import {
+  compareByWords,
+  compareText,
+  lcsLength,
+  weakCharsFromCompare,
+} from '@/core/practice/compare'
 
 describe('compareText', () => {
   it('完全正确', () => {
@@ -84,5 +89,77 @@ describe('weakCharsFromCompare', () => {
   it('全部正确返回空数组', () => {
     const r = compareText('PARIS', 'paris')
     expect(weakCharsFromCompare(r)).toEqual([])
+  })
+})
+
+describe('compareByWords 词级比对', () => {
+  it('strict 呼号按组验证：错一组只标记该组', () => {
+    const r = compareByWords('BG9ABC BG9XYZ BA1AA', 'bg9abc bg9abd ba1aa', 'strict')
+    expect(r.items.map((i) => i.kind)).toEqual(['match', 'wrong', 'match'])
+    expect(r.correct).toBe(2)
+    expect(r.total).toBe(3)
+    expect(r.accuracyPct).toBe(66.7)
+    expect(r.items[1].got).toBe('BG9ABD')
+    expect(r.items[1].similarity).toBeLessThan(1)
+  })
+
+  it('strict 漏发连续多组各标记 missed，不影响前后组', () => {
+    const r = compareByWords('AAA BBB CCC DDD EEE', 'aaa bbb eee', 'strict')
+    expect(r.items.map((i) => i.kind)).toEqual(['match', 'match', 'missed', 'missed', 'match'])
+    expect(r.items[2].expected).toBe('CCC')
+    expect(r.items[3].expected).toBe('DDD')
+    expect(r.correct).toBe(3)
+    expect(r.extraWords).toHaveLength(0)
+  })
+
+  it('strict 多发的组进入 extraWords', () => {
+    const r = compareByWords('AA CC', 'aa xx cc', 'strict')
+    expect(r.items.map((i) => i.kind)).toEqual(['match', 'match'])
+    expect(r.extraWords).toEqual(['XX'])
+  })
+
+  it('strict 词内小错不算对（全等才匹配）', () => {
+    const r = compareByWords('HELLO', 'HELO', 'strict')
+    expect(r.items[0].kind).toBe('wrong')
+    expect(r.correct).toBe(0)
+  })
+
+  it('fuzzy 文章模式：词内小错仍可配对，连续对上标为大块', () => {
+    const r = compareByWords('THE QUICK BROWN FOX JUMPS', 'the quick brwon fox jumps', 'fuzzy')
+    expect(r.items.map((i) => i.kind)).toEqual(['match', 'match', 'match', 'match', 'match'])
+    expect(r.correct).toBe(5)
+    expect(r.items.every((i) => i.block)).toBe(true) // 5 词连续 → 全部大块
+  })
+
+  it('fuzzy 大块只标连续 ≥2 的匹配段', () => {
+    const r = compareByWords('AAA BBB CCC DDD EEE', 'aaa bbb ccc eee', 'fuzzy')
+    expect(r.items.map((i) => i.kind)).toEqual(['match', 'match', 'match', 'missed', 'match'])
+    expect(r.items[0].block).toBe(true)
+    expect(r.items[1].block).toBe(true)
+    expect(r.items[2].block).toBe(true)
+    expect(r.items[4].block).toBe(false) // 孤立单词匹配不算大块
+  })
+
+  it('fuzzy 相似度阈值边界', () => {
+    // sim(ABC,ABX) = 2/3 ≈ 0.67 ≥ 0.6 → 配对
+    const a = compareByWords('ABC', 'abx', 'fuzzy')
+    expect(a.items[0].kind).toBe('match')
+    // sim(AB,AX) = 1/2 = 0.5 < 0.6 → 不配对，成 wrong
+    const b = compareByWords('AB', 'ax', 'fuzzy')
+    expect(b.items[0].kind).toBe('wrong')
+  })
+
+  it('空输入返回 total=0 且正确率为 null', () => {
+    const r = compareByWords('', '', 'strict')
+    expect(r.total).toBe(0)
+    expect(r.accuracyPct).toBeNull()
+    expect(r.items).toHaveLength(0)
+  })
+
+  it('lcsLength 基本性质', () => {
+    expect(lcsLength('BROWN', 'BRWON')).toBe(4)
+    expect(lcsLength('ABC', 'ABC')).toBe(3)
+    expect(lcsLength('ABC', 'XYZ')).toBe(0)
+    expect(lcsLength('', 'ABC')).toBe(0)
   })
 })

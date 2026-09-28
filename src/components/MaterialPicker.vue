@@ -13,18 +13,22 @@ const props = withDefaults(
 )
 
 const materialText = defineModel<string>({ default: '' })
+/** 当前素材类型（父组件可读取以决定验证方式） */
+const kind = defineModel<MaterialKind>('kind', { default: 'text' })
 
 const kinds: { key: MaterialKind; label: string }[] = [
   { key: 'text', label: '自由文本' },
   { key: 'chars', label: '字符组' },
+  { key: 'digits', label: '数字组' },
+  { key: 'article', label: '英文文章' },
   { key: 'words', label: '单词' },
   { key: 'callsigns', label: '呼号' },
   { key: 'abbreviations', label: 'Q码缩写' },
   { key: 'qso', label: 'QSO 模板' },
 ]
 
-const kind = ref<MaterialKind>('text')
 const count = ref(5)
+const groupLen = ref(4)
 const customChars = ref('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 const qsoId = ref('cq')
 const callsignSelf = ref('')
@@ -42,6 +46,7 @@ function generate(): void {
     count: count.value,
     text: materialText.value,
     charSet: set.length > 0 ? set : undefined,
+    groupLen: groupLen.value,
     qsoId: qsoId.value,
     callsign: callsignSelf.value,
     peer: callsignPeer.value,
@@ -51,6 +56,12 @@ function generate(): void {
 
 function onTab(k: MaterialKind): void {
   if (isLocked() && k !== 'chars') return
+  if (k === 'digits') {
+    kind.value = 'digits'
+    customChars.value = '0123456789'
+    if (count.value < 5) count.value = 5
+    return
+  }
   kind.value = k
   if (k === 'text' && !materialText.value) materialText.value = props.initialText
 }
@@ -66,19 +77,29 @@ function onTab(k: MaterialKind): void {
           :key="k.key"
           :class="{ on: kind === k.key }"
           :disabled="isLocked() && k.key !== 'chars'"
+          :data-testid="`material-tab-${k.key}`"
           @click="onTab(k.key)"
         >
           {{ k.label }}
         </button>
       </div>
       <template v-if="!isLocked() && kind !== 'text' && kind !== 'qso'">
-        <label class="inline">数量 <input v-model.number="count" type="number" min="1" max="100" style="width: 64px" /></label>
+        <label class="inline">
+          {{ kind === 'article' ? '词数' : kind === 'chars' || kind === 'digits' ? '组数' : '数量' }}
+          <input v-model.number="count" type="number" min="1" max="300" style="width: 64px" />
+        </label>
+      </template>
+      <template v-if="!isLocked() && (kind === 'chars' || kind === 'digits')">
+        <label class="inline">
+          每组
+          <input v-model.number="groupLen" type="number" min="2" max="8" style="width: 52px" />
+        </label>
       </template>
       <button v-if="!isLocked() && kind !== 'text'" class="btn" data-testid="material-generate" @click="generate">
-        {{ kind === 'qso' ? '生成模板' : '生成素材' }}
+        {{ kind === 'qso' ? '生成模板' : kind === 'article' ? '生成文章' : '生成素材' }}
       </button>
     </div>
-    <div v-if="!isLocked() && kind === 'chars'" class="row" style="margin-bottom: 10px">
+    <div v-if="!isLocked() && (kind === 'chars' || kind === 'digits')" class="row" style="margin-bottom: 10px">
       <label class="inline">字符集 <input v-model="customChars" type="text" class="mono" style="flex: 1" /></label>
     </div>
     <div v-if="!isLocked() && kind === 'qso'" class="row" style="margin-bottom: 10px; flex-wrap: wrap">
@@ -99,6 +120,7 @@ function onTab(k: MaterialKind): void {
     />
     <p class="hint" style="margin: 6px 0 0">
       支持字母、数字与常用标点；空格为单词间隔。当前显示偏好：{{ settings.displayCase === 'lower' ? '小写' : '大写' }}
+      <template v-if="kind === 'article'">；文章素材用<b>大片匹配</b>方式验证，容忍中间的错漏</template>
     </p>
   </div>
 </template>

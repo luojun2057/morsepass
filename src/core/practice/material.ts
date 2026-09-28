@@ -119,7 +119,7 @@ export function generateAbbreviations(rng: () => number, count: number, list: re
   return out.join(' ')
 }
 
-export type MaterialKind = 'chars' | 'words' | 'callsigns' | 'abbreviations' | 'mixed' | 'text' | 'qso'
+export type MaterialKind = 'chars' | 'digits' | 'words' | 'callsigns' | 'abbreviations' | 'mixed' | 'text' | 'qso' | 'article'
 
 /** QSO 通联模板：callsign=本台呼号，peer=对方呼号 */
 export interface QsoTemplate {
@@ -193,8 +193,14 @@ export function generateMaterial(rng: () => number, opts: MaterialOptions): stri
       return buildQso(opts.qsoId ?? 'cq', opts.callsign ?? '', opts.peer ?? '') ?? ''
     case 'chars':
       return generateCharGroups(rng, opts.charSet ?? ['E', 'T', 'A', 'N'], count, opts.groupLen ?? 5)
+    case 'digits':
+      // 4 字一组数字（默认），可用 groupLen 调整
+      return generateCharGroups(rng, opts.charSet ?? '0123456789'.split(''), count, opts.groupLen ?? 4)
     case 'words':
       return generateWords(rng, count)
+    case 'article':
+      // 大段英文文章：默认 80 词，适合词级对齐训练
+      return generateWords(rng, Math.max(20, count))
     case 'callsigns':
       return generateCallsigns(rng, count)
     case 'abbreviations':

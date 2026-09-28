@@ -2,7 +2,15 @@
 import { computed, ref, watch } from 'vue'
 import { audio, useKeyer } from '@/composables/useKeyer'
 import { useSettings } from '@/composables/useSettings'
-import { compareText, weakCharsFromCompare, type CompareResult } from '@/core/practice/compare'
+import {
+  compareByWords,
+  compareText,
+  weakCharsFromCompare,
+  type CompareResult,
+  type WordCompareResult,
+  type WordMatchMode,
+} from '@/core/practice/compare'
+import type { MaterialKind } from '@/core/practice/material'
 import { toDisplayCase } from '@/core/morse/codec'
 import MaterialPicker from '@/components/MaterialPicker.vue'
 import ParamSlider from '@/components/ParamSlider.vue'
@@ -14,6 +22,7 @@ import HistoryList from '@/components/HistoryList.vue'
 const settings = useSettings()
 const liveArea = ref<HTMLElement | null>(null)
 const materialText = ref('')
+const materialKind = ref<MaterialKind>('text')
 
 // 发报模式：自由发报 / 对照文章发报
 const mode = computed({
@@ -67,6 +76,19 @@ const articleResult = computed<CompareResult | null>(() => {
   if (mode.value !== 'article' || !materialText.value.trim()) return null
   return compareText(materialText.value, keyer.decoded.value)
 })
+
+/**
+ * 词级比对（按组验证）：
+ * - 呼号/数字组/QSO 模板/字符组/单词/Q码 → strict，组内全等才算对
+ * - 自由文本/英文文章 → fuzzy，按词相似度对齐，找连续匹配的大片
+ */
+const wordMode = computed<WordMatchMode>(() =>
+  materialKind.value === 'text' || materialKind.value === 'article' ? 'fuzzy' : 'strict',
+)
+const wordResult = computed<WordCompareResult | null>(() => {
+  if (mode.value !== 'article' || !materialText.value.trim()) return null
+  return compareByWords(materialText.value, keyer.decoded.value, wordMode.value)
+})
 const sentCount = computed(() => keyer.decoded.value.length)
 const totalCount = computed(() => materialText.value.length)
 const progressPct = computed(() => {
@@ -104,6 +126,8 @@ function captureKey(): void {
 }
 
 const sendHistory = computed(() => history.value.filter((r) => r.mode === 'send'))
+
+const dispWord = (s: string): string => toDisplayCase(s, settings.displayCase)
 </script>
 
 <template>
@@ -138,7 +162,11 @@ const sendHistory = computed(() => history.value.filter((r) => r.mode === 'send'
       </span>
     </div>
 
-    <MaterialPicker v-if="mode === 'article'" v-model="materialText" />
+    <MaterialPicker
+      v-if="mode === 'article'"
+      v-model="materialText"
+      v-model:kind="materialKind"
+    />
 
     <div class="grid-2" style="margin-top: 16px">
       <div class="card">
@@ -235,24 +263,77 @@ const sendHistory = computed(() => history.value.filter((r) => r.mode === 'send'
     </div>
 
     <div v-if="mode === 'article' && articleResult" class="card" style="margin-top: 16px">
-      <p class="card-title">实时比对（与原文逐字符对齐）</p>
+      <p class="card-title">
+        实时比对
+        <span class="hint" style="font-weight: 400; margin-left: 8px">
+          {{ wordMode === 'strict' ? '按组验证：一组内全部正确该组才算对' : '文章模式：大片匹配，容忍中间的错漏' }}
+        </span>
+      </p>
       <div class="badges" style="margin-bottom: 10px">
         <span class="badge">
-          <span class="k">正确率</span>
-          <span class="v" :class="(articleResult.accuracyPct ?? 0) >= 90 ? 'good' : ''" data-testid="article-accuracy">
-            {{ articleResult.accuracyPct == null ? '—' : `${articleResult.accuracyPct}%` }}
+          <span class="k">{{ wordMode === 'strict' ? '组正确率' : '词正确率' }}</span>
+          <span
+            class="v"
+            :class="(wordResult?.accuracyPct ?? 0) >= 90 ? 'good' : ''"
+            data-testid="article-accuracy"
+          >
+            {{ wordResult?.accuracyPct == null ? '—' : `${wordResult.accuracyPct}%` }}
           </span>
         </span>
         <span class="badge">
+          <span class="k">对</span>
+          <span class="v" style="color: var(--success)">{{ wordResult?.correct ?? 0 }}</span>
+        </span>
+        <span class="badge">
+          <span class="k">错</span>
+          <span class="v" style="color: var(--danger)">{{ wordResult?.items.filter((i) => i.kind === 'wrong').length ?? 0 }}</span>
+        </span>
+        <span class="badge">
           <span class="k">漏发</span>
-          <span class="v">{{ articleResult.items.filter((i) => i.kind === 'missed').length }}</span>
+          <span class="v">{{ wordResult?.items.filter((i) => i.kind === 'missed').length ?? 0 }}</span>
         </span>
         <span class="badge">
           <span class="k">多余</span>
-          <span class="v">{{ articleResult.extraCount }}</span>
+          <span class="v">{{ wordResult?.extraWords.length ?? 0 }}</span>
         </span>
       </div>
-      <ResultDiff :result="articleResult" :display-case="settings.displayCase" />
+
+      <!-- 逐组结果 chips -->
+      <div class="word-chips" data-testid="article-groups">
+        <span
+          v-for="(it, idx) in wordResult?.items ?? []"
+          :key="idx"
+          class="word-chip"
+          :class="[it.kind, { block: it.kind === 'match' && it.block }]"
+          :title="it.kind === 'wrong' && it.got ? `你发的是：${dispWord(it.got)}` : undefined"
+        >
+          <span class="wc-main">{{ dispWord(it.expected) }}</span>
+          <span v-if="it.kind === 'wrong' && it.got" class="wc-got">{{ dispWord(it.got) }}</span>
+        </span>
+        <span
+          v-for="(w, idx) in wordResult?.extraWords ?? []"
+          :key="'e' + idx"
+          class="word-chip extra"
+          :title="`多发的内容：${dispWord(w)}`"
+        >
+          <span class="wc-main">{{ dispWord(w) }}</span>
+        </span>
+      </div>
+
+      <p class="hint" style="margin: 10px 0 0">
+        <span class="legend-dot ok" /> 组全对
+        <span class="legend-dot bad" style="margin-left: 10px" /> 组错（小字为你发出的内容）
+        <span class="legend-dot miss" style="margin-left: 10px" /> 漏发
+        <span class="legend-dot extra" style="margin-left: 10px" /> 多余
+        <template v-if="wordMode === 'fuzzy'">
+          · 深色底 = 连续对上的<b>大片</b>
+        </template>
+      </p>
+
+      <details style="margin-top: 10px">
+        <summary class="hint" style="cursor: pointer">逐字符 diff（详细）</summary>
+        <ResultDiff :result="articleResult" :display-case="settings.displayCase" />
+      </details>
     </div>
 
     <div ref="liveArea" class="card" style="margin-top: 16px" data-testid="live-area">
@@ -313,5 +394,100 @@ const sendHistory = computed(() => history.value.filter((r) => r.mode === 'send'
   height: 100%;
   background: var(--primary);
   transition: width 0.3s;
+}
+
+/* ---- 逐组验证 chips ---- */
+.word-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.word-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--mono, monospace);
+  font-size: 13px;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.word-chip .wc-got {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.word-chip.match {
+  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, var(--bg));
+  color: var(--success);
+  font-weight: 600;
+}
+
+.word-chip.match.block {
+  background: color-mix(in srgb, var(--success) 22%, var(--bg));
+  box-shadow: inset 0 -2px 0 var(--success);
+}
+
+.word-chip.wrong {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--bg));
+}
+
+.word-chip.wrong .wc-main {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.word-chip.wrong .wc-got {
+  color: var(--danger);
+  font-weight: 700;
+  opacity: 1;
+}
+
+.word-chip.missed {
+  border-style: dashed;
+  color: var(--muted);
+  background: transparent;
+}
+
+.word-chip.extra {
+  border-color: color-mix(in srgb, var(--warn) 60%, var(--border));
+  background: color-mix(in srgb, var(--warn) 10%, var(--bg));
+  color: var(--warn);
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 3px;
+  border: 1px solid var(--border);
+}
+
+.legend-dot.ok {
+  background: color-mix(in srgb, var(--success) 22%, var(--bg));
+  border-color: var(--success);
+}
+
+.legend-dot.bad {
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+  border-color: var(--danger);
+}
+
+.legend-dot.miss {
+  background: transparent;
+  border-style: dashed;
+}
+
+.legend-dot.extra {
+  background: color-mix(in srgb, var(--warn) 15%, var(--bg));
+  border-color: var(--warn);
 }
 </style>

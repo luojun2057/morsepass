@@ -92,38 +92,58 @@ test('自由发报：全局鼠标发报解码为小写并统计整场正确率',
 test('对照发报：照文发报实时比对，结束报告采用全文比对结果', async ({ page }) => {
   await page.goto('/')
 
-  // 切到对照模式，填入文章 "ET"（E=点 T=划）
+  // 切到对照模式，填入 "E T"（两个单词：E=点 T=划）
   await page.getByTestId('mode-article').click()
   await expect(page.getByTestId('material-input')).toBeVisible()
-  await page.getByTestId('material-input').fill('ET')
+  await page.getByTestId('material-input').fill('E T')
 
   const wpmSlider = page.getByTestId('param-速度').locator('input[type=range]')
   await wpmSlider.fill('10')
 
   await page.getByTestId('start-btn').click()
 
-  // E（点）+ T（划），中间留字符间隙
+  // E（点）→ 词间隔（10WPM 时 wordMs=840ms）→ T（划）
   const title = await page.locator('.page-title').boundingBox()
   if (!title) throw new Error('page-title not found')
   await pressAt(page, title.x + title.width / 2, title.y + title.height / 2, DIT_MS)
-  await page.waitForTimeout(CHAR_GAP_MS)
-  const live = await page.getByTestId('live-area').boundingBox()
-  if (!live) throw new Error('live-area not found')
+  await page.waitForTimeout(1100)
+  const live = await page.locator('.decode-stream').boundingBox()
+  if (!live) throw new Error('decode-stream not found')
   await pressAt(page, live.x + live.width / 2, live.y + live.height / 2, DAH_MS)
   await page.waitForTimeout(500)
 
-  // 实时比对：发全 "ET" → 100%，进度 2/2
-  await expect(page.getByTestId('decoded-stream')).toHaveText('et')
+  // 实时比对：发全 "E T" → 100%，进度 3/3（含词分隔空格）
+  await expect(page.getByTestId('decoded-stream')).toHaveText('e t')
   await expect(page.getByTestId('article-accuracy')).toHaveText('100%')
   await expect(page.getByTestId('article-progress')).toHaveAttribute('style', /width:\s*100%/)
 
-  // 结束 → 报告采用全文比对结果：2/2、100%
+  // 逐组 chips：两个词全对，连续 ≥2 → 均带大块标记
+  const chips = page.getByTestId('article-groups').locator('.word-chip')
+  await expect(chips).toHaveCount(2)
+  await expect(chips.first()).toContainText('e')
+  await expect(chips.first()).toHaveClass(/match/)
+  await expect(chips.nth(1)).toHaveClass(/match block/)
+
+  // 结束 → 报告采用全文比对结果："E T" 含词分隔空格共 3 字符全对、100%
   await page.getByTestId('stop-btn').click()
   const report = page.getByTestId('report-card')
   await expect(report).toBeVisible()
   await expect(report).toContainText('100%')
-  await expect(report).toContainText('2/2')
+  await expect(report).toContainText('3/3')
 
-  // 比对明细仍显示（全绿）
+  // 展开折叠区查看逐字符 diff（全绿）
+  await page.getByText('逐字符 diff（详细）').click()
   await expect(page.getByTestId('diff-result')).toBeVisible()
+})
+
+test('对照发报：数字组一键生成 4 字一组纯数字素材', async ({ page }) => {
+  await page.goto('/')
+  await page.getByTestId('mode-article').click()
+  await page.getByTestId('material-tab-digits').click()
+  await page.getByTestId('material-generate').click()
+
+  const text = await page.getByTestId('material-input').inputValue()
+  const groups = text.trim().split(/\s+/)
+  expect(groups.length).toBeGreaterThanOrEqual(5)
+  for (const g of groups) expect(g).toMatch(/^\d{4}$/)
 })

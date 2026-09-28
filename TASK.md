@@ -70,6 +70,13 @@
 - [x] H8. 音量滑块修复：ParamSlider 增加 scale（0-1 ↔ 0-100），四处视图拖动音量不再被钳到最大
 - [x] H9. 全量回归：vue-tsc 干净 + vitest（107/107）+ E2E（10/10）全绿
 
+## 阶段 I：对照发报按组验证 + 素材扩展（用户需求迭代）
+
+- [x] I1. 词级比对 `compareByWords`：`core/practice/compare.ts` 追加词级 LCS 对齐；`strict`（呼号/通联/数字组全等配对）与 `fuzzy`（字符 LCS 相似度 ≥0.6 配对，容忍文章中间错漏）双模式；连续 ≥2 词匹配标记 `block`（大片对得上高亮）；多余输入收进 `extraWords`
+- [x] I2. 素材扩展：`MaterialKind` 新增 `digits`（4 字一组纯数字，组宽 2-8 可调）与 `article`（大段英文文章，≥20 词，fuzzy 验证）；素材选择器新增 tab 与提示
+- [x] I3. 发报对照页 chips UI：逐组结果色块（match/wrong/missed/extra + block 深色底）、组/词正确率与对错漏多徽章、图例、折叠逐字符 diff
+- [x] I4. 测试与回归：compare.spec 9 个词级用例、material 数字组/文章用例、E2E 数字组生成用例；vue-tsc 干净 + vitest（118/118）+ E2E（11/11）全绿
+
 ## 验收标准（阶段 G 出口）
 
 1. 五大痛点修复项全部满足 DESIGN.md §2.2 验收标准

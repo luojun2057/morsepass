@@ -38,6 +38,7 @@ export function usePlayback(page: string) {
     audio.setTone(settings.toneHz)
     audio.setVolume(settings.volume)
     audio.setNoise(settings.noise.enabled, settings.noise.level)
+    audio.setQsb(settings.qsb.enabled, settings.qsb.level)
     const tl = buildTimeline(text, timing.wpmChar, timing.wpmEff)
     sourceText.value = text
     charSpans.value = tl.charSpans

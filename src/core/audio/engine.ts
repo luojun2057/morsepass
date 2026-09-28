@@ -25,12 +25,16 @@ export class AudioEngine {
   private ctx: AudioContext | null = null
   private osc: OscillatorNode | null = null
   private gain: GainNode | null = null
+  /** QSB 衰落节点（串在主 gain 之后） */
+  private qsbGain: GainNode | null = null
   private noiseSrc: AudioBufferSourceNode | null = null
   private noiseGain: GainNode | null = null
   private noiseFilter: BiquadFilterNode | null = null
   private toneHz = 700
   private volume = 0.5
   private noiseLevel = 0.15
+  private qsbEnabled = false
+  private qsbLevel = 0.4
   private readonly createCtx?: () => AudioContext
 
   constructor(options: EngineOptions = {}) {
@@ -51,11 +55,15 @@ export class AudioEngine {
       osc.frequency.value = this.toneHz
       const gain = this.ctx.createGain()
       gain.gain.value = 0
+      const qsbGain = this.ctx.createGain()
+      qsbGain.gain.value = 1
       osc.connect(gain)
-      gain.connect(this.ctx.destination)
+      gain.connect(qsbGain)
+      qsbGain.connect(this.ctx.destination)
       osc.start()
       this.osc = osc
       this.gain = gain
+      this.qsbGain = qsbGain
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume()
     return this.ctx
@@ -83,6 +91,18 @@ export class AudioEngine {
 
   setVolume(v: number): void {
     this.volume = Math.min(1, Math.max(0, v))
+  }
+
+  /** QSB 衰落配置（播放链路生效；发报按键不受影响） */
+  setQsb(enabled: boolean, level = 0.4): void {
+    this.qsbEnabled = enabled
+    this.qsbLevel = Math.min(1, Math.max(0, level))
+    if (this.qsbGain && this.ctx) {
+      const g = this.qsbGain.gain
+      const t = this.ctx.currentTime
+      g.cancelScheduledValues(t)
+      g.setValueAtTime(1, t)
+    }
   }
 
   /** 发报按下：立即起音 */
@@ -125,7 +145,26 @@ export class AudioEngine {
         g.linearRampToValueAtTime(0.0001, abs + 0.002)
       }
     }
+    this.scheduleQsb(events, t0)
     return t0 * 1000
+  }
+
+  /** QSB：在 qsbGain 上排程随机慢速起伏（分段线性随机走），模拟信号衰落 */
+  private scheduleQsb(events: { t: number; on: boolean }[], t0: number): void {
+    if (!this.qsbGain || !this.ctx) return
+    const qg = this.qsbGain.gain
+    qg.cancelScheduledValues(t0)
+    qg.setValueAtTime(1, t0)
+    if (!this.qsbEnabled || this.qsbLevel <= 0) return
+    const durationMs = events.length > 0 ? events[events.length - 1].t : 0
+    const segSec = 0.45
+    let t = t0
+    const end = t0 + durationMs / 1000
+    while (t < end) {
+      t += segSec
+      const depth = Math.pow(Math.random(), 1.5) * this.qsbLevel
+      qg.linearRampToValueAtTime(Math.max(0.05, 1 - depth), Math.min(t, end))
+    }
   }
 
   /** 停止一切已排程/正在进行的发声 */
@@ -136,6 +175,11 @@ export class AudioEngine {
     g.cancelScheduledValues(t)
     g.setValueAtTime(g.value, t)
     g.linearRampToValueAtTime(0.0001, t + 0.01)
+    if (this.qsbGain) {
+      const qg = this.qsbGain.gain
+      qg.cancelScheduledValues(t)
+      qg.setValueAtTime(1, t)
+    }
   }
 
   /** QRM 噪声（白噪声 → 中心频率带通 → 电平） */
@@ -205,6 +249,7 @@ export class AudioEngine {
     this.ctx = null
     this.osc = null
     this.gain = null
+    this.qsbGain = null
   }
 }
 

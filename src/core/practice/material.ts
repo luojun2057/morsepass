@@ -1,7 +1,9 @@
 /**
- * 练习素材生成器：随机字符组 / 单词 / 呼号 / Q码缩写 / 混合。
+ * 练习素材生成器：随机字符组 / 单词 / 呼号 / Q码缩写 / 混合 / QSO 模板。
  * 全部接受种子随机数生成器，保证测试可复现。
  */
+
+import { normalizeText } from '@/core/morse/codec'
 
 /** mulberry32 种子随机数生成器，返回 [0,1) 均匀分布 */
 export function mulberry32(seed: number): () => number {
@@ -117,7 +119,54 @@ export function generateAbbreviations(rng: () => number, count: number, list: re
   return out.join(' ')
 }
 
-export type MaterialKind = 'chars' | 'words' | 'callsigns' | 'abbreviations' | 'mixed' | 'text'
+export type MaterialKind = 'chars' | 'words' | 'callsigns' | 'abbreviations' | 'mixed' | 'text' | 'qso'
+
+/** QSO 通联模板：callsign=本台呼号，peer=对方呼号 */
+export interface QsoTemplate {
+  id: string
+  name: string
+  build: (callsign: string, peer: string) => string
+}
+
+const FALLBACK_SELF = 'BA1XXX'
+const FALLBACK_PEER = 'BA9ZZZ'
+
+export const QSO_TEMPLATES: readonly QsoTemplate[] = [
+  {
+    id: 'cq',
+    name: 'CQ 呼叫',
+    build: (c) => `CQ CQ CQ DE ${c} ${c} K`,
+  },
+  {
+    id: 'answer',
+    name: '回应呼叫',
+    build: (c, p) => `${p} DE ${c} ${p} DE ${c} R K`,
+  },
+  {
+    id: 'report',
+    name: '信号报告',
+    build: (c, p) => `${p} DE ${c} R UR RST 599 599 5NN K`,
+  },
+  {
+    id: 'info',
+    name: '设备与天气',
+    build: (c, p) => `${p} DE ${c} RIG K3 ANT DP ES WX SUNNY HW? K`,
+  },
+  {
+    id: 'qsl',
+    name: '致谢结束',
+    build: (c, p) => `${p} DE ${c} TNX FER QSO 73 ES CUL SK`,
+  },
+]
+
+/** 按 id 构建 QSO 模板文本（呼号缺省时使用占位呼号） */
+export function buildQso(id: string, callsign: string, peer: string): string | null {
+  const tpl = QSO_TEMPLATES.find((t) => t.id === id)
+  if (!tpl) return null
+  const self = normalizeText(callsign).replace(/\s+/g, '') || FALLBACK_SELF
+  const other = normalizeText(peer).replace(/\s+/g, '') || FALLBACK_PEER
+  return tpl.build(self, other)
+}
 
 export interface MaterialOptions {
   kind: MaterialKind
@@ -129,6 +178,10 @@ export interface MaterialOptions {
   text?: string
   /** chars 模式每组字符数，默认 5 */
   groupLen?: number
+  /** qso 模式：模板 id / 本台呼号 / 对方呼号 */
+  qsoId?: string
+  callsign?: string
+  peer?: string
 }
 
 export function generateMaterial(rng: () => number, opts: MaterialOptions): string {
@@ -136,6 +189,8 @@ export function generateMaterial(rng: () => number, opts: MaterialOptions): stri
   switch (opts.kind) {
     case 'text':
       return opts.text ?? ''
+    case 'qso':
+      return buildQso(opts.qsoId ?? 'cq', opts.callsign ?? '', opts.peer ?? '') ?? ''
     case 'chars':
       return generateCharGroups(rng, opts.charSet ?? ['E', 'T', 'A', 'N'], count, opts.groupLen ?? 5)
     case 'words':

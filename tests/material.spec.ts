@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   COMMON_WORDS,
   HAM_ABBREVIATIONS,
+  buildQso,
   generateAbbreviations,
   generateCallsign,
   generateCharGroups,
   generateMaterial,
   generateWords,
   mulberry32,
+  QSO_TEMPLATES,
 } from '@/core/practice/material'
 
 describe('material', () => {
@@ -74,5 +76,27 @@ describe('material', () => {
   it('generateMaterial count 下限保护', () => {
     const rng = mulberry32(2)
     expect(generateCharGroups(rng, ['E', 'T'], 0).split(' ')).toHaveLength(1)
+  })
+})
+
+describe('QSO 模板', () => {
+  it('各模板呼号自动大写去空格', () => {
+    expect(buildQso('cq', ' ba1xx ', 'bg9ab')).toBe('CQ CQ CQ DE BA1XX BA1XX K')
+    expect(buildQso('answer', 'BA1XX', 'BG9AB')).toBe('BG9AB DE BA1XX BG9AB DE BA1XX R K')
+    expect(buildQso('report', 'BA1XX', 'BG9AB')).toBe('BG9AB DE BA1XX R UR RST 599 599 5NN K')
+    expect(buildQso('qsl', 'BA1XX', 'BG9AB')).toBe('BG9AB DE BA1XX TNX FER QSO 73 ES CUL SK')
+  })
+
+  it('呼号缺省时使用占位呼号', () => {
+    expect(buildQso('cq', '', '')).toBe('CQ CQ CQ DE BA1XXX BA1XXX K')
+    expect(buildQso('info', '', 'BG9AB')).toContain('DE BA1XXX')
+  })
+
+  it('未知模板 id 返回 null，generateMaterial qso 路由可用', () => {
+    expect(buildQso('nope', 'BA1XX', 'BG9AB')).toBeNull()
+    expect(generateMaterial(mulberry32(1), { kind: 'qso', count: 1, qsoId: 'cq', callsign: 'BA1XX', peer: 'BG9AB' })).toBe(
+      'CQ CQ CQ DE BA1XX BA1XX K',
+    )
+    expect(QSO_TEMPLATES.length).toBeGreaterThanOrEqual(5)
   })
 })

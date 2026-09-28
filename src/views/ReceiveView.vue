@@ -132,7 +132,7 @@ const wordCount = computed(() => splitWords(materialText.value).length)
         <ParamSlider v-model="timing.wpmChar" label="字符速度" :min="5" :max="40" unit=" WPM" />
         <ParamSlider v-model="timing.wpmEff" label="有效速度" :min="5" :max="40" unit=" WPM" />
         <p class="hint" style="margin: 0 0 8px">有效速度低于字符速度即启用 Farnsworth 间隔（字符快、间隔慢）。</p>
-        <ParamSlider v-model="settings.volume" label="音量" :min="0" :max="100" unit="%" />
+        <ParamSlider v-model="settings.volume" label="音量" :min="0" :max="100" :step="5" unit="%" :scale="100" />
         <div class="param-row">
           <label>QRM 噪声</label>
           <input v-model="settings.noise.enabled" type="checkbox" data-testid="noise-toggle" />

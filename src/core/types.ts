@@ -20,6 +20,8 @@ export interface GlobalSettings {
   sendMode: SendMode
   /** QRM 噪声开关与电平 */
   noise: { enabled: boolean; level: number }
+  /** QSB 衰落开关与深度（0-1，播放链路音量随机起伏） */
+  qsb: { enabled: boolean; level: number }
 }
 
 export interface TimingSettings {

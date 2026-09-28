@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
   displayCase: 'lower',
   sendMode: 'free',
   noise: { enabled: false, level: 0.15 },
+  qsb: { enabled: false, level: 0.4 },
 }
 
 export const DEFAULT_TIMING: TimingSettings = {
@@ -26,6 +27,7 @@ const settings = reactive<GlobalSettings>({
   ...loadSettings(),
   input: { ...DEFAULT_SETTINGS.input, ...(loadSettings().input ?? {}) },
   noise: { ...DEFAULT_SETTINGS.noise, ...(loadSettings().noise ?? {}) },
+  qsb: { ...DEFAULT_SETTINGS.qsb, ...(loadSettings().qsb ?? {}) },
 })
 
 watch(

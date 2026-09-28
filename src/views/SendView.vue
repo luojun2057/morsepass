@@ -145,7 +145,7 @@ const sendHistory = computed(() => history.value.filter((r) => r.mode === 'send'
         <p class="card-title">参数设置</p>
         <ParamSlider v-model="timing.wpmChar" label="速度" :min="5" :max="40" unit=" WPM" />
         <ParamSlider v-model="timing.tolerancePct" label="容差" :min="5" :max="50" unit="%" />
-        <ParamSlider v-model="settings.volume" label="音量" :min="0" :max="100" unit="%" />
+        <ParamSlider v-model="settings.volume" label="音量" :min="0" :max="100" :step="5" unit="%" :scale="100" />
 
         <div class="param-row">
           <label>音调</label>

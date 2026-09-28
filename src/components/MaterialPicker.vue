@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { generateMaterial, mulberry32, type MaterialKind } from '@/core/practice/material'
+import { generateMaterial, mulberry32, QSO_TEMPLATES, type MaterialKind } from '@/core/practice/material'
 import { useSettings } from '@/composables/useSettings'
 
 const props = withDefaults(
@@ -20,11 +20,15 @@ const kinds: { key: MaterialKind; label: string }[] = [
   { key: 'words', label: '单词' },
   { key: 'callsigns', label: '呼号' },
   { key: 'abbreviations', label: 'Q码缩写' },
+  { key: 'qso', label: 'QSO 模板' },
 ]
 
 const kind = ref<MaterialKind>('text')
 const count = ref(5)
 const customChars = ref('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+const qsoId = ref('cq')
+const callsignSelf = ref('')
+const callsignPeer = ref('')
 const settings = useSettings()
 
 function isLocked(): boolean {
@@ -38,6 +42,9 @@ function generate(): void {
     count: count.value,
     text: materialText.value,
     charSet: set.length > 0 ? set : undefined,
+    qsoId: qsoId.value,
+    callsign: callsignSelf.value,
+    peer: callsignPeer.value,
   })
   if (text) materialText.value = text
 }
@@ -64,13 +71,25 @@ function onTab(k: MaterialKind): void {
           {{ k.label }}
         </button>
       </div>
-      <template v-if="!isLocked() && kind !== 'text'">
+      <template v-if="!isLocked() && kind !== 'text' && kind !== 'qso'">
         <label class="inline">数量 <input v-model.number="count" type="number" min="1" max="100" style="width: 64px" /></label>
       </template>
-      <button v-if="!isLocked() && kind !== 'text'" class="btn" @click="generate">生成素材</button>
+      <button v-if="!isLocked() && kind !== 'text'" class="btn" data-testid="material-generate" @click="generate">
+        {{ kind === 'qso' ? '生成模板' : '生成素材' }}
+      </button>
     </div>
     <div v-if="!isLocked() && kind === 'chars'" class="row" style="margin-bottom: 10px">
       <label class="inline">字符集 <input v-model="customChars" type="text" class="mono" style="flex: 1" /></label>
+    </div>
+    <div v-if="!isLocked() && kind === 'qso'" class="row" style="margin-bottom: 10px; flex-wrap: wrap">
+      <label class="inline">
+        模板
+        <select v-model="qsoId" data-testid="qso-template">
+          <option v-for="t in QSO_TEMPLATES" :key="t.id" :value="t.id">{{ t.name }}</option>
+        </select>
+      </label>
+      <label class="inline">本台呼号 <input v-model="callsignSelf" type="text" class="mono" placeholder="如 BA1XXX" style="width: 110px" /></label>
+      <label class="inline">对方呼号 <input v-model="callsignPeer" type="text" class="mono" placeholder="如 BA9ZZZ" style="width: 110px" /></label>
     </div>
     <textarea
       v-model="materialText"

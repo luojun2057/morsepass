@@ -4,6 +4,8 @@ const navs = [
   { to: '/receive', label: '听抄练习' },
   { to: '/follow', label: '跟发练习' },
   { to: '/koch', label: 'Koch 课程' },
+  { to: '/challenge', label: '挑战' },
+  { to: '/tools', label: '工具' },
   { to: '/stats', label: '统计' },
 ]
 </script>

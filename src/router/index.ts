@@ -9,6 +9,8 @@ export const router = createRouter({
     { path: '/receive', component: () => import('@/views/ReceiveView.vue') },
     { path: '/follow', component: () => import('@/views/FollowView.vue') },
     { path: '/koch', component: () => import('@/views/KochView.vue') },
+    { path: '/challenge', component: () => import('@/views/ChallengeView.vue') },
+    { path: '/tools', component: () => import('@/views/ToolsView.vue') },
     { path: '/stats', component: () => import('@/views/StatsView.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/send' },
   ],

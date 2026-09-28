@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
         <p class="card-title">播放设置</p>
         <ParamSlider v-model="timing.wpmChar" label="字符速度" :min="5" :max="40" unit=" WPM" />
         <ParamSlider v-model="timing.wpmEff" label="有效速度" :min="5" :max="40" unit=" WPM" />
-        <ParamSlider v-model="settings.volume" label="音量" :min="0" :max="100" unit="%" />
+        <ParamSlider v-model="settings.volume" label="音量" :min="0" :max="100" :step="5" unit="%" :scale="100" />
       </div>
 
       <div class="card">

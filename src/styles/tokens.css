@@ -1,0 +1,20 @@
+/* 设计令牌：浅色简洁工具风 */
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --text: #1f2329;
+  --text-2: #5f6672;
+  --muted: #9aa1ab;
+  --primary: #2f6fed;
+  --primary-weak: #e8effd;
+  --success: #2e9e5b;
+  --success-weak: #e6f5ec;
+  --danger: #d64545;
+  --danger-weak: #fbeaea;
+  --warn: #c77d0a;
+  --warn-weak: #fdf3e2;
+  --border: #e5e8ec;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgb(31 35 41 / 6%);
+  --font-mono: 'Cascadia Mono', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+}

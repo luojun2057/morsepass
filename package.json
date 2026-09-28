@@ -1,0 +1,30 @@
+{
+  "name": "morsepass",
+  "private": true,
+  "version": "2.0.0-alpha.1",
+  "type": "module",
+  "description": "MorsePass v2 - 网页版摩尔斯码训练器（Vue 3 + Vite + TS）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.0",
+    "@types/node": "^22.15.0",
+    "@vitejs/plugin-vue": "^5.2.3",
+    "jsdom": "^26.1.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5",
+    "vite-plugin-pwa": "^1.0.3",
+    "vitest": "^3.2.4",
+    "vue-tsc": "^2.2.10"
+  }
+}

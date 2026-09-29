@@ -3,8 +3,9 @@
  * 一个视图一个会话实例；音频引擎为模块级单例。
  */
 
-import { onBeforeUnmount, ref, shallowRef } from 'vue'
+import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { AudioEngine } from '@/core/audio/engine'
+import { AutoKeyer } from '@/core/keyer/auto'
 import { MorseDecoder } from '@/core/morse/decoder'
 import { deviationRatio } from '@/core/morse/timing'
 import { toDisplayCase } from '@/core/morse/codec'
@@ -22,6 +23,7 @@ import {
   type SymbolRecord,
 } from '@/core/practice/stats'
 import { buildRecord, loadHistory, pushHistory } from '@/core/storage/persist'
+import { analyzeRhythmIssues, type RhythmIssue } from '@/core/practice/rhythm'
 import { usePageTiming, useSettings } from './useSettings'
 import type { GlobalSettings, PracticeMode, TimingSettings } from '@/core/types'
 
@@ -37,6 +39,8 @@ export interface KeyerReport {
   snapshot: SessionSnapshot
   hints: string[]
   saved: boolean
+  /** 节奏问题分类汇总（点/划/间隔各自太长太短），按次数降序 */
+  rhythmIssues: RhythmIssue[]
 }
 
 export interface UseKeyerOptions {
@@ -108,12 +112,14 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
   )
 
   let sources: KeyInputSource[] = []
+  let autoKeyer: AutoKeyer | null = null
   let sessionStart = 0
   let charClean = true
   let pollTimer: ReturnType<typeof setInterval> | null = null
 
-  function buildSources(): KeyInputSource[] {
-    const handlers = {
+  /** 手动键下游：音频 + 解码（自动键的 AutoKeyer 复用同一对处理） */
+  function keyHandlers() {
+    return {
       onDown: (now: number) => {
         audio.startTone()
         decoder.down(now)
@@ -123,6 +129,36 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
         decoder.up(now)
       },
     }
+  }
+
+  /** 自动键装配：物理桨（鼠标左=划/右=点 + 键盘双桨键）→ AutoKeyer 状态机 */
+  function buildAutoKeyerSources(): KeyInputSource[] {
+    autoKeyer = new AutoKeyer(keyHandlers(), { getWpm: () => timing.wpmChar })
+    autoKeyer.setStyle(settings.input.keyerStyle)
+    const paddle = (el: 'dit' | 'dah') => ({
+      onDown: (now: number) => (el === 'dit' ? autoKeyer!.onDitDown(now) : autoKeyer!.onDahDown(now)),
+      onUp: () => (el === 'dit' ? autoKeyer!.onDitUp() : autoKeyer!.onDahUp()),
+    })
+    // 鼠标双桨：默认左键=划、右键=点；reverse 后整体互换
+    const ditButton: 0 | 2 = settings.input.paddleReverse ? 0 : 2
+    const dahButton: 0 | 2 = settings.input.paddleReverse ? 2 : 0
+    const list: KeyInputSource[] = [
+      createMouseSource(ditButton, paddle('dit')),
+      createMouseSource(dahButton, paddle('dah')),
+    ]
+    if (settings.input.paddleDitKey) {
+      list.push(createKeyboardSource(settings.input.paddleDitKey, paddle('dit')))
+    }
+    if (settings.input.paddleDahKey) {
+      list.push(createKeyboardSource(settings.input.paddleDahKey, paddle('dah')))
+    }
+    // 触屏双桨本轮不做（单点触摸无法区分两个桨）
+    return list
+  }
+
+  function buildSources(): KeyInputSource[] {
+    if (settings.input.keyerMode === 'auto') return buildAutoKeyerSources()
+    const handlers = keyHandlers()
     const list: KeyInputSource[] = []
     if (settings.input.mouseButton !== null) {
       list.push(createMouseSource(settings.input.mouseButton, handlers))
@@ -134,6 +170,11 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
     if (el) list.push(createTouchSource(el, handlers))
     return list
   }
+
+  // 练习中调速/容差即时生效（手动键解码阈值；自动键经 getWpm 实时读取）
+  watch([() => timing.wpmChar, () => timing.tolerancePct], () => {
+    decoder.setTiming(timing.wpmChar, timing.tolerancePct)
+  })
 
   function start(): void {
     if (running.value) return
@@ -154,6 +195,7 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
 
     sources = buildSources()
     for (const s of sources) s.activate()
+    autoKeyer?.start()
 
     pollTimer = setInterval(() => {
       snapshot.value = stats.snapshot(performance.now())
@@ -167,6 +209,8 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
     running.value = false
     for (const s of sources) s.deactivate()
     sources = []
+    autoKeyer?.stop()
+    autoKeyer = null
     if (pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
@@ -200,13 +244,19 @@ export function useKeyer(page: string, options: UseKeyerOptions) {
         symbolAccuracyPct: snap.symbolAccuracyPct,
         weakChars: snap.weakChars,
         material,
+        keyerMode: settings.input.keyerMode,
       })
       const list = pushHistory(record)
       saved = list.length > 0 && list[0].id === record.id
       history.value = list
     }
 
-    report.value = { snapshot: snap, hints, saved }
+    report.value = {
+      snapshot: snap,
+      hints,
+      saved,
+      rhythmIssues: analyzeRhythmIssues(records.value, timing.wpmChar, timing.tolerancePct),
+    }
   }
 
   /** 清空实时解码流（不影响统计与历史） */

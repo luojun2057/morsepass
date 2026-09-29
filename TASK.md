@@ -84,6 +84,30 @@
 - [x] J3. 播放声音修复：`scheduleTones` 缺平台保持段导致符号期间音量持续衰减 + 消音仅 2ms——抽出 `buildGainSchedule` 梯形包络纯函数（attack 5ms → hold → release 6ms，短符号 clamp），发报/播放/WAV 三处统一；wav.ts 升级升余弦整形（ARRL 5ms / W8JI 6-7ms 依据）
 - [x] J4. 测试与回归：buildMaterialSpans 5 用例、gain.spec 6 用例；E2E 适配分区布局（未开始无时间线画布、stop 后功能区卸载）；vue-tsc 干净 + vitest（129/129）+ E2E（11/11）全绿；原型 prototype-layout.html 先行确认，用户听验通过
 
+## 阶段 K：自动键（iambic 双桨，设计方案确认后实施）
+
+- [x] K1. 设置层：`keyerMode`（手动/自动）+ `paddleDitKey`/`paddleDahKey` 双桨键盘绑定 + `paddleReverse` 点划互换 + `keyerStyle`（Mode A/B）；`SessionRecord.keyerMode` 快照
+- [x] K2. 引擎层：`core/keyer/auto.ts` AutoKeyer 状态机（虚拟手）——`nextElement` 纯函数（双桨交替/单桨重复/对方切换/Mode A 松手即停/Mode B 挤压记忆补发）；点 1Td、划 3Td、间隙 1Td；间隙中松手 Mode A 取消排队元素（Curtis A 精确语义）、Mode B 补发照常；练习中调速实时生效
+- [x] K3. 输入层：createMouseSource 改用 mousedown/mouseup（Chromium 鼠标为单一 pointer，多按钮按压时 pointerdown 不重复派发，无法区分双桨）；useKeyer 按 keyerMode 装配双桨（鼠标左=划/右=点 + 键盘双桨键，reverse 交换映射）；触屏双桨本轮不做
+- [x] K4. UI：发报页电键卡加 手动键/自动键 tabs（练习中随设置区折叠锁定）；自动键 tab：点桨/划桨行（默认 鼠标右=点、左=划 + 键盘绑定）+ ⇄点划互换 + iambic Mode A/B 选择；摘要条带模式；跟发页经共享引擎自动获得
+- [x] K5. 测试与回归：autokeyer.spec 18 用例（nextElement 分支 + fake timers 时序 + Mode A/B 对照 + 调速/中断/停后忽略）；E2E autokeyer 5 用例（右点左划/按住重复/挤压 A=a B=r/互换/键盘双桨）；vue-tsc 干净 + vitest（147/147）+ E2E（16/16）全绿
+
+## 阶段 L：时间线可视化修复（点划粘连）
+
+- [x] L1. 根因：`TimelineRecord.t` 是符号「抬起时刻」，渲染却当「按下时刻」用——每条色带右移自身时长，划→点必重叠（粘连）、点→划间隙虚增 2Td；`computeTimelineWindow` 同步修正（lastEnd = 抬起时刻）
+- [x] L2. 色带画回真实按压区间 `[t−时长, t]`，间隙还原为真实值；最小条宽 2px→1px（不再吃掉快速发报的真实间隙）
+- [x] L3. 窗口按点长自适应：`timelineWindowMs(wpm)`（140Td 宽 + 25Td 尾部）替代固定 10s——发越快画布分辨率越高，间隙像素占比与速度无关
+- [x] L4. 抬起基线（key-up 电平线，CW Player 等 keying 波形画法）+ 字符间隙标记（相邻符号间隙 ≥ 2Td 淡色标出，用户确认加）
+- [x] L5. 各视图传 wpm（SendView×2 / FollowView / KochView）；timelineWindowMs 3 用例 + 窗口语义断言更新；keying.spec 事件名补正（mousedown/mouseup，上轮 pointer 遗留导致误报绿）；TSC 干净 + vitest 150/150 + E2E 16/16
+
+## 阶段 M：空闲压缩 + 节奏问题汇总（用户使用反馈）
+
+- [x] M1. 空闲间隙压缩：`compressIdleGaps` 纯函数——相邻符号空闲 >3s 压缩为 600ms 显示宽度，恢复发报后之前的节奏不滚出视野；`mapRealTime` 供网格线映射（压缩区间内跳过）
+- [x] M2. 画布集成：窗口/色带/字符间隙标记全部走压缩映射；≥3s 的停顿作为「场次分隔」不再标字符间隙色
+- [x] M3. 节奏问题汇总：`core/practice/rhythm.ts` `analyzeRhythmIssues` 纯函数——8 类问题（点/划、字符内间隔/字符间隔 各自太短/太长）按次数降序，含平均偏差%；间隔期望按 <2Td→1Td、2~5Td→3Td、≥5Td→7Td 分类；useKeyer 报告接入
+- [x] M4. ReportCard 报告卡：汇总表格（问题类型/次数/平均偏差，偏差正红负蓝）；全容差内时提示「可以尝试提高速度」
+- [x] M5. 测试：compressIdleGaps 5 用例 + mapRealTime 3 用例 + rhythm 9 用例；TSC 干净 + vitest 167/167 + E2E 16/16 全绿
+
 ## 验收标准（阶段 G 出口）
 
 1. 五大痛点修复项全部满足 DESIGN.md §2.2 验收标准

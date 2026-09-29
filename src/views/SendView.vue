@@ -152,10 +152,22 @@ const KIND_LABELS: Record<MaterialKind, string> = {
 const settingsSummary = computed(
   () =>
     `${timing.wpmChar} WPM · 容差 ${timing.tolerancePct}% · 音量 ${Math.round(settings.volume * 100)}% · ` +
-    (mode.value === 'article' ? `素材：${KIND_LABELS[materialKind.value]}` : '自由发报'),
+    (mode.value === 'article' ? `素材：${KIND_LABELS[materialKind.value]}` : '自由发报') +
+    ` · ${isAuto.value ? '自动键' : '手动键'}`,
 )
 
-// 鼠标输入模式
+// ---- 键控模式与双桨绑定（自动键） ----
+const isAuto = computed(() => settings.input.keyerMode === 'auto')
+const keyerStyle = computed({
+  get: () => settings.input.keyerStyle,
+  set: (v) => {
+    settings.input.keyerStyle = v
+  },
+})
+const paddleDitMouse = computed(() => (settings.input.paddleReverse ? '鼠标左键' : '鼠标右键'))
+const paddleDahMouse = computed(() => (settings.input.paddleReverse ? '鼠标右键' : '鼠标左键'))
+
+// 鼠标输入模式（手动键）
 const mouseMode = computed({
   get: () =>
     settings.input.mouseButton === null ? 'off' : settings.input.mouseButton === 0 ? 'left' : 'right',
@@ -164,15 +176,20 @@ const mouseMode = computed({
   },
 })
 
-// 键盘按键捕获
-const capturing = ref(false)
-function captureKey(): void {
-  capturing.value = true
+// 键盘按键捕获（手动键单键 / 自动键点桨、划桨）
+type CaptureTarget = 'key' | 'dit' | 'dah'
+const capturing = ref<CaptureTarget | null>(null)
+function captureKey(target: CaptureTarget): void {
+  capturing.value = target
   const handler = (e: KeyboardEvent): void => {
     e.preventDefault()
     e.stopPropagation()
-    if (e.code !== 'Escape') settings.input.key = e.code
-    capturing.value = false
+    if (e.code !== 'Escape') {
+      if (target === 'key') settings.input.key = e.code
+      else if (target === 'dit') settings.input.paddleDitKey = e.code
+      else settings.input.paddleDahKey = e.code
+    }
+    capturing.value = null
     window.removeEventListener('keydown', handler, true)
   }
   window.addEventListener('keydown', handler, true)
@@ -187,7 +204,8 @@ const dispWord = (s: string): string => toDisplayCase(s, settings.displayCase)
   <main class="page">
     <h2 class="page-title">发报节奏训练</h2>
     <p class="page-sub">
-      点击「开始练习」后，<b>按住鼠标任意位置</b>（电键模拟点击）或按住配置的键盘按键即可发报：短按为点，长按为划。
+      点击「开始练习」后即可发报：<b>手动键</b>按住鼠标任意位置（电键模拟点击）或配置的按键，短按为点、长按为划；
+      <b>自动键</b>用两个桨（默认左键=划、右键=点），按住自动重复，双桨同按交替发点划。
     </p>
 
     <!-- 模式切换（练习中锁定） -->
@@ -244,28 +262,106 @@ const dispWord = (s: string): string => toDisplayCase(s, settings.displayCase)
           </div>
 
           <div class="param-row">
-            <label>电键输入</label>
-            <select v-model="mouseMode" style="flex: 1" data-testid="mouse-mode">
-              <option value="left">鼠标左键（电键模拟）</option>
-              <option value="right">鼠标右键</option>
-              <option value="off">禁用鼠标</option>
-            </select>
+            <label>键控模式</label>
+            <div class="tabs" style="flex: 1" data-testid="keyer-mode-tabs">
+              <button
+                :class="{ on: settings.input.keyerMode === 'manual' }"
+                :disabled="running"
+                data-testid="keyer-manual"
+                @click="settings.input.keyerMode = 'manual'"
+              >
+                手动键
+              </button>
+              <button
+                :class="{ on: settings.input.keyerMode === 'auto' }"
+                :disabled="running"
+                data-testid="keyer-auto"
+                @click="settings.input.keyerMode = 'auto'"
+              >
+                自动键
+              </button>
+            </div>
           </div>
 
-          <div class="param-row">
-            <label>键盘按键</label>
-            <template v-if="capturing">
-              <span style="flex: 1; color: var(--primary); font-weight: 600">请按下任意键…（Esc 取消）</span>
-            </template>
-            <template v-else>
-              <span class="mono" style="flex: 1" data-testid="key-binding">
-                {{ settings.input.key ?? '未设置' }}
-              </span>
-            </template>
-            <button class="btn" @click="captureKey">设置按键</button>
-            <button v-if="settings.input.key" class="btn" @click="settings.input.key = null">清除</button>
-          </div>
-          <p class="hint">电键转接器输出鼠标点击 → 选「鼠标左键」即可，光标位置不限。</p>
+          <template v-if="settings.input.keyerMode === 'manual'">
+            <div class="param-row">
+              <label>鼠标输入</label>
+              <select v-model="mouseMode" style="flex: 1" data-testid="mouse-mode">
+                <option value="left">鼠标左键（电键模拟）</option>
+                <option value="right">鼠标右键</option>
+                <option value="off">禁用鼠标</option>
+              </select>
+            </div>
+
+            <div class="param-row">
+              <label>键盘按键</label>
+              <template v-if="capturing === 'key'">
+                <span style="flex: 1; color: var(--primary); font-weight: 600">请按下任意键…（Esc 取消）</span>
+              </template>
+              <template v-else>
+                <span class="mono" style="flex: 1" data-testid="key-binding">
+                  {{ settings.input.key ?? '未设置' }}
+                </span>
+              </template>
+              <button class="btn" @click="captureKey('key')">设置按键</button>
+              <button v-if="settings.input.key" class="btn" @click="settings.input.key = null">清除</button>
+            </div>
+            <p class="hint">电键转接器输出鼠标点击 → 选「鼠标左键」即可，光标位置不限。</p>
+          </template>
+
+          <template v-else>
+            <div class="param-row">
+              <label>点桨</label>
+              <span class="mono" style="width: 88px" data-testid="dit-mouse-label">{{ paddleDitMouse }}</span>
+              <template v-if="capturing === 'dit'">
+                <span style="flex: 1; color: var(--primary); font-weight: 600">按下任意键…</span>
+              </template>
+              <template v-else>
+                <span class="mono" style="flex: 1" data-testid="dit-key-binding">
+                  {{ settings.input.paddleDitKey ?? '键盘未设置' }}
+                </span>
+              </template>
+              <button class="btn" @click="captureKey('dit')">设置按键</button>
+              <button v-if="settings.input.paddleDitKey" class="btn" @click="settings.input.paddleDitKey = null">清除</button>
+            </div>
+
+            <div class="param-row">
+              <label>划桨</label>
+              <span class="mono" style="width: 88px" data-testid="dah-mouse-label">{{ paddleDahMouse }}</span>
+              <template v-if="capturing === 'dah'">
+                <span style="flex: 1; color: var(--primary); font-weight: 600">按下任意键…</span>
+              </template>
+              <template v-else>
+                <span class="mono" style="flex: 1" data-testid="dah-key-binding">
+                  {{ settings.input.paddleDahKey ?? '键盘未设置' }}
+                </span>
+              </template>
+              <button class="btn" @click="captureKey('dah')">设置按键</button>
+              <button v-if="settings.input.paddleDahKey" class="btn" @click="settings.input.paddleDahKey = null">清除</button>
+            </div>
+
+            <div class="param-row">
+              <label>点划互换</label>
+              <button
+                class="btn"
+                :class="{ 'btn-primary': settings.input.paddleReverse }"
+                style="flex: 1"
+                data-testid="paddle-reverse"
+                @click="settings.input.paddleReverse = !settings.input.paddleReverse"
+              >
+                ⇄ {{ settings.input.paddleReverse ? '已互换（点=左键 划=右键）' : '正常（点=右键 划=左键）' }}
+              </button>
+            </div>
+
+            <div class="param-row">
+              <label>iambic 模式</label>
+              <select v-model="keyerStyle" style="flex: 1" data-testid="keyer-style">
+                <option value="a">Mode A —— 松手即停（推荐）</option>
+                <option value="b">Mode B —— 松手后多发一个记忆元素</option>
+              </select>
+            </div>
+            <p class="hint">按住桨自动重复（点=右键、划=左键）；双桨同按交替发点划（iambic）。速度跟随「速度」滑块。</p>
+          </template>
         </div>
 
         <div class="card">
@@ -308,7 +404,10 @@ const dispWord = (s: string): string => toDisplayCase(s, settings.displayCase)
       data-testid="live-area"
     >
       <div class="practice-head">
-        <span class="hint">练习关注区 · 按住鼠标任意位置发报</span>
+        <span class="hint">
+          练习关注区 ·
+          {{ isAuto ? `自动键：${paddleDahMouse}发划、${paddleDitMouse}发点（按住自动重复）` : '按住鼠标任意位置发报' }}
+        </span>
         <button class="btn fs-btn" @click="toggleFs">
           {{ isFs ? '✕ 退出全屏' : '⛶ 全屏练习' }}
         </button>
@@ -360,13 +459,18 @@ const dispWord = (s: string): string => toDisplayCase(s, settings.displayCase)
             </div>
             <div class="pending-morse" data-testid="pending-morse">{{ pendingMorse || '&nbsp;' }}</div>
             <div class="decode-stream" data-testid="decoded-stream">{{ decodedDisp || '&nbsp;' }}</div>
-            <TimelineCanvas :records="records" :running="running" />
+            <TimelineCanvas :records="records" :running="running" :wpm="timing.wpmChar" />
             <div class="badges" style="margin-top: 10px">
               <span class="badge">
-                <span class="k">整场正确率</span>
-                <span class="v" data-testid="accuracy">{{
-                  snapshot?.accuracyPct == null ? '—' : `${snapshot.accuracyPct}%`
-                }}</span>
+                <span class="k">节奏准确率</span>
+                <span
+                  class="v"
+                  :class="(snapshot?.symbolAccuracyPct ?? 0) >= 90 ? 'good' : ''"
+                  data-testid="accuracy"
+                  >{{
+                    snapshot?.symbolAccuracyPct == null ? '—' : `${snapshot.symbolAccuracyPct}%`
+                  }}</span
+                >
               </span>
               <span class="badge">
                 <span class="k">近 10 符</span>
@@ -475,13 +579,16 @@ const dispWord = (s: string): string => toDisplayCase(s, settings.displayCase)
           </div>
           <div class="pending-morse big" data-testid="pending-morse">{{ pendingMorse || '&nbsp;' }}</div>
           <div class="decode-stream big" data-testid="decoded-stream">{{ decodedDisp || '&nbsp;' }}</div>
-          <TimelineCanvas :records="records" :running="running" />
+          <TimelineCanvas :records="records" :running="running" :wpm="timing.wpmChar" />
           <div class="badges center">
             <span class="badge">
-              <span class="k">整场正确率</span>
-              <span class="v" data-testid="accuracy">{{
-                snapshot?.accuracyPct == null ? '—' : `${snapshot.accuracyPct}%`
-              }}</span>
+              <span class="k">节奏准确率</span>
+              <span
+                class="v"
+                :class="(snapshot?.symbolAccuracyPct ?? 0) >= 90 ? 'good' : ''"
+                data-testid="accuracy"
+                >{{ snapshot?.symbolAccuracyPct == null ? '—' : `${snapshot.symbolAccuracyPct}%` }}</span
+              >
             </span>
             <span class="badge">
               <span class="k">近 10 符</span>

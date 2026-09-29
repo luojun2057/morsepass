@@ -7,7 +7,15 @@ import type { GlobalSettings, TimingSettings } from '@/core/types'
 import { loadSettings, loadTiming, saveSettings, saveTiming } from '@/core/storage/persist'
 
 export const DEFAULT_SETTINGS: GlobalSettings = {
-  input: { mouseButton: 0, key: null },
+  input: {
+    mouseButton: 0,
+    key: null,
+    keyerMode: 'manual',
+    paddleDitKey: null,
+    paddleDahKey: null,
+    paddleReverse: false,
+    keyerStyle: 'a',
+  },
   toneHz: 700,
   volume: 0.5,
   displayCase: 'lower',

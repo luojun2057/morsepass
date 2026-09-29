@@ -94,6 +94,7 @@ export function buildRecord(params: {
   symbolAccuracyPct: number | null
   weakChars: SessionRecord['weakChars']
   material?: string
+  keyerMode?: SessionRecord['keyerMode']
 }): SessionRecord {
   return {
     id: makeRecordId(),

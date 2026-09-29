@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { computeTimelineWindow } from '@/core/morse/timeline'
+import {
+  compressIdleGaps,
+  computeTimelineWindow,
+  IDLE_COMPRESS_THRESHOLD_MS,
+  mapRealTime,
+  timelineWindowMs,
+} from '@/core/morse/timeline'
+import { ditMs } from '@/core/morse/timing'
 import type { TimelineRecord } from '@/composables/useKeyer'
 
 const props = defineProps<{
   records: TimelineRecord[]
   running: boolean
+  /** 发报速度（WPM）：决定窗口宽度与字符间隙标记的判定阈值 */
+  wpm?: number
 }>()
-
-/** 时间窗口宽度：窗口右端跟随最后一次发报（无输入即冻结），旧信号滚出视野 */
-const WINDOW_MS = 10_000
-/** 最后一个符号结束后的留白 */
-const TAIL_MS = 1_500
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let raf = 0
@@ -35,6 +39,7 @@ function draw(): void {
 
   const labelH = 14
   const plotH = cssH - labelH
+  const wpm = props.wpm ?? 20
 
   // 空状态提示
   if (props.records.length === 0) {
@@ -47,18 +52,23 @@ function draw(): void {
     return
   }
 
-  // 显示窗口：右端跟随最后一次符号结束，无新输入即冻结
-  const win = computeTimelineWindow(props.records, WINDOW_MS, TAIL_MS)
+  // 显示窗口：按点长自适应（发越快分辨率越高），右端跟随最后一次抬起。
+  // 长空闲（>3s）压缩为固定显示宽度——恢复发报后之前的节奏不滚出视野
+  const { mapped, compressed } = compressIdleGaps(props.records)
+  const { windowMs, tailMs } = timelineWindowMs(wpm)
+  const win = computeTimelineWindow(mapped, windowMs, tailMs)
   const span = Math.max(1, win.endMs - win.startMs)
   const x = (t: number): number => ((t - win.startMs) / span) * cssW
 
-  // 每秒网格线（会话秒：从会话开始计）
+  // 每秒网格线（会话真实秒，经压缩映射定位；落在压缩区间内跳过）
   ctx.strokeStyle = '#eceef1'
   ctx.lineWidth = 1
   ctx.font = '10px sans-serif'
   ctx.fillStyle = '#9aa1ab'
   for (let s = Math.ceil(win.startMs / 1000) * 1000; s <= win.endMs; s += 1000) {
-    const gx = x(s)
+    const mappedS = mapRealTime(s, compressed)
+    if (mappedS === null) continue
+    const gx = x(mappedS)
     ctx.beginPath()
     ctx.moveTo(gx, 0)
     ctx.lineTo(gx, plotH)
@@ -66,16 +76,42 @@ function draw(): void {
     ctx.fillText(`${Math.round(s / 1000)}s`, gx + 3, cssH - 2)
   }
 
-  // 按压时段色带：条宽 = 按压时长，绿 = 节奏在容差内，红 = 超差
+  const Td = ditMs(wpm)
   const bandH = Math.max(14, plotH * 0.55)
   const midY = plotH / 2
-  for (const r of props.records) {
-    const end = r.t + r.durationMs
-    if (end < win.startMs || r.t > win.endMs) continue
-    const x1 = Math.max(0, x(r.t))
-    const x2 = Math.min(cssW, x(end))
+  const baseY = midY + bandH / 2 + 4
+
+  // 字符间隙标记：相邻符号真实间隙 ≥ 2Td（字符边界阈值）且未被压缩时淡色标出
+  // （≥3s 的空闲是「停顿」分隔，压缩显示，不作为字符间隙标记）
+  ctx.fillStyle = '#FAEEDA'
+  const recs = props.records
+  for (let i = 1; i < recs.length; i++) {
+    const gapStart = recs[i - 1].t
+    const gapEnd = recs[i].t - recs[i].durationMs
+    const gap = gapEnd - gapStart
+    if (gap < 2 * Td || gap >= IDLE_COMPRESS_THRESHOLD_MS) continue
+    const x1 = Math.max(0, x(mapRealTime(gapStart, compressed) ?? gapStart))
+    const x2 = Math.min(cssW, x(mapRealTime(gapEnd, compressed) ?? gapEnd))
+    if (x2 > x1) ctx.fillRect(x1, 0, x2 - x1, plotH)
+  }
+
+  // 抬起基线：key-up 电平线（CW Player 等 keying 波形画法，间隙有实体可读）
+  ctx.strokeStyle = '#D3D1C7'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(0, baseY)
+  ctx.lineTo(cssW, baseY)
+  ctx.stroke()
+
+  // 按压时段色带：条画在真实按压区间 [抬起−时长, 抬起]（压缩映射后），
+  // 条间空白即真实间隙。绿 = 节奏在容差内，红 = 超差；最小宽 1px
+  for (const r of mapped) {
+    const start = r.t - r.durationMs
+    if (r.t < win.startMs || start > win.endMs) continue
+    const x1 = Math.max(0, x(start))
+    const x2 = Math.min(cssW, x(r.t))
     ctx.fillStyle = r.accurate ? '#2e9e5b' : '#d64545'
-    ctx.fillRect(x1, midY - bandH / 2, Math.max(2, x2 - x1), bandH)
+    ctx.fillRect(x1, midY - bandH / 2, Math.max(1, x2 - x1), bandH)
   }
 
   raf = requestAnimationFrame(draw)

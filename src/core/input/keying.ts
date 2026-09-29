@@ -4,6 +4,10 @@
  * 核心场景：用户的物理电键经转接器输出为"鼠标左键按下/抬起"，
  * 事件发生时光标可停在页面任意位置。因此鼠标源在练习会话内
  * 对整个 window 做 capture 级监听——任意非控件位置的按下/抬起都触发发报。
+ *
+ * 鼠标源监听 mousedown/mouseup 而非 pointer 事件：鼠标是单一 pointer，
+ * Chromium 在多按钮同时按压时只派发一次 pointerdown（第二只按键仅有
+ * mousedown），pointer 事件无法区分自动键的双桨。
  */
 
 export interface KeyHandlers {
@@ -25,7 +29,7 @@ function isInteractive(target: EventTarget | null): boolean {
 }
 
 /**
- * 鼠标输入源（电键模拟鼠标点击）。
+ * 鼠标输入源（电键模拟鼠标点击，或自动键的桨）。
  * @param button 0=左键 2=右键
  */
 export function createMouseSource(button: 0 | 2, handlers: KeyHandlers): KeyInputSource {
@@ -34,7 +38,7 @@ export function createMouseSource(button: 0 | 2, handlers: KeyHandlers): KeyInpu
 
   const onDown = (e: Event): void => {
     if (!active || pressing) return
-    const ev = e as PointerEvent
+    const ev = e as MouseEvent
     if (ev.button !== button) return
     if (isInteractive(ev.target)) return
     ev.preventDefault() // 抑制文本选择/拖拽
@@ -43,7 +47,7 @@ export function createMouseSource(button: 0 | 2, handlers: KeyHandlers): KeyInpu
   }
   const onUp = (e: Event): void => {
     if (!active || !pressing) return
-    const ev = e as PointerEvent
+    const ev = e as MouseEvent
     if (ev.button !== button) return
     // 抬起不检查目标元素：即使移到控件上方抬起也要结束按压
     pressing = false
@@ -64,18 +68,16 @@ export function createMouseSource(button: 0 | 2, handlers: KeyHandlers): KeyInpu
     activate() {
       if (active) return
       active = true
-      window.addEventListener('pointerdown', onDown, true)
-      window.addEventListener('pointerup', onUp, true)
-      window.addEventListener('pointercancel', onUp, true)
+      window.addEventListener('mousedown', onDown, true)
+      window.addEventListener('mouseup', onUp, true)
       window.addEventListener('contextmenu', onCtxMenu, true)
       window.addEventListener('blur', release)
     },
     deactivate() {
       active = false
       release()
-      window.removeEventListener('pointerdown', onDown, true)
-      window.removeEventListener('pointerup', onUp, true)
-      window.removeEventListener('pointercancel', onUp, true)
+      window.removeEventListener('mousedown', onDown, true)
+      window.removeEventListener('mouseup', onUp, true)
       window.removeEventListener('contextmenu', onCtxMenu, true)
       window.removeEventListener('blur', release)
     },

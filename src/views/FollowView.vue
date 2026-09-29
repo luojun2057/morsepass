@@ -160,7 +160,7 @@ onBeforeUnmount(() => {
       <p class="card-title">实时跟发</p>
       <div class="pending-morse" data-testid="follow-pending">{{ pendingMorse || '&nbsp;' }}</div>
       <div class="decode-stream" data-testid="follow-decoded">{{ decodedDisp || '&nbsp;' }}</div>
-      <TimelineCanvas :records="records" :running="running" />
+      <TimelineCanvas :records="records" :running="running" :wpm="timing.wpmChar" />
       <div style="margin-top: 10px">
         <ResultDiff v-if="liveResult" :result="liveResult" :display-case="settings.displayCase" />
         <p v-else class="hint">开始跟发后此处显示实时比对</p>

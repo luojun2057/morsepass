@@ -210,7 +210,7 @@ function grade(): void {
       <div class="decode-stream mono" data-testid="koch-decoded">
         {{ keyer.decodedDisplay() || '&nbsp;' }}
       </div>
-      <TimelineCanvas :records="keyer.records.value" :running="keyer.running.value" />
+      <TimelineCanvas :records="keyer.records.value" :running="keyer.running.value" :wpm="keyer.timing.wpmChar" />
     </div>
 
     <div v-if="phase === 'graded'" class="card" style="margin-top: 16px" data-testid="koch-result">

@@ -46,9 +46,8 @@ test('自由发报：全局鼠标发报解码为小写并统计整场正确率',
   const wpmSlider = page.getByTestId('param-速度').locator('input[type=range]')
   await wpmSlider.fill('10')
 
-  // 开始前时间线无绿色信号（只有网格与提示文字）
-  const greenBefore = await greenPixels(page)
-  expect(greenBefore).toBe(0)
+  // 未开始时无练习关注区（时间线画布在功能区，开始后才渲染）
+  expect(await page.getByTestId('timeline-canvas').count()).toBe(0)
 
   // 开始练习（点击按钮本身在控件上，不会触发发报）
   await page.getByTestId('start-btn').click()
@@ -60,7 +59,7 @@ test('自由发报：全局鼠标发报解码为小写并统计整场正确率',
   await pressAt(page, title.x + title.width / 2, title.y + title.height / 2, DIT_MS)
   await page.waitForTimeout(CHAR_GAP_MS)
 
-  // 第二个划按在实时区卡片中央 —— 证明鼠标位置无关（全局捕获）
+  // 第二个划按在练习关注区中央 —— 证明鼠标位置无关（全局捕获）
   const live = await page.getByTestId('live-area').boundingBox()
   if (!live) throw new Error('live-area not found')
   await pressAt(page, live.x + live.width / 2, live.y + live.height / 2, DAH_MS)
@@ -73,20 +72,20 @@ test('自由发报：全局鼠标发报解码为小写并统计整场正确率',
   const greenAfter = await greenPixels(page)
   expect(greenAfter).toBeGreaterThan(0)
 
+  // 实时徽章反映整场正确率（练习中功能区可见）
+  await expect(page.getByTestId('accuracy')).toHaveText('100%')
+
   // 清空解码流
   await page.getByTestId('clear-decoded').click()
   await expect(page.getByTestId('decoded-stream')).toHaveText('\u00a0')
 
-  // 结束练习 → 整场报告：2 字符全部正确（节奏均在容差内）
+  // 结束练习 → 报告弹窗：2 字符全部正确（节奏均在容差内）
   await page.getByTestId('stop-btn').click()
   await expect(page.getByTestId('report-card')).toBeVisible()
   const report = page.getByTestId('report-card')
   await expect(report).toContainText('100%')
   await expect(report).toContainText('2/2')
   await expect(report).toContainText('已保存到练习历史')
-
-  // 实时徽章同样反映整场正确率
-  await expect(page.getByTestId('accuracy')).toHaveText('100%')
 })
 
 test('对照发报：照文发报实时比对，结束报告采用全文比对结果', async ({ page }) => {
@@ -124,16 +123,16 @@ test('对照发报：照文发报实时比对，结束报告采用全文比对�
   await expect(chips.first()).toHaveClass(/match/)
   await expect(chips.nth(1)).toHaveClass(/match block/)
 
-  // 结束 → 报告采用全文比对结果："E T" 含词分隔空格共 3 字符全对、100%
+  // 展开折叠区查看逐字符 diff（全绿）——结束练习后功能区卸载，须在停止前展开
+  await page.getByText('逐字符 diff（详细）').click()
+  await expect(page.getByTestId('diff-result')).toBeVisible()
+
+  // 结束 → 报告弹窗采用全文比对结果："E T" 含词分隔空格共 3 字符全对、100%
   await page.getByTestId('stop-btn').click()
   const report = page.getByTestId('report-card')
   await expect(report).toBeVisible()
   await expect(report).toContainText('100%')
   await expect(report).toContainText('3/3')
-
-  // 展开折叠区查看逐字符 diff（全绿）
-  await page.getByText('逐字符 diff（详细）').click()
-  await expect(page.getByTestId('diff-result')).toBeVisible()
 })
 
 test('对照发报：数字组一键生成 4 字一组纯数字素材', async ({ page }) => {

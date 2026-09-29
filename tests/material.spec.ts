@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   COMMON_WORDS,
   HAM_ABBREVIATIONS,
+  buildMaterialSpans,
   buildQso,
   generateAbbreviations,
   generateCallsign,
@@ -125,5 +126,45 @@ describe('QSO 模板', () => {
       'CQ CQ CQ DE BA1XX BA1XX K',
     )
     expect(QSO_TEMPLATES.length).toBeGreaterThanOrEqual(5)
+  })
+})
+
+describe('buildMaterialSpans 素材跟随高亮', () => {
+  it('中间进度：已发/当前/未发三段', () => {
+    const spans = buildMaterialSpans('E T', 2)
+    expect(spans).toEqual([
+      { text: 'E ', state: 'sent' },
+      { text: 'T', state: 'cur' },
+    ])
+  })
+
+  it('相邻同态自动合并', () => {
+    const spans = buildMaterialSpans('ABCDE', 2)
+    expect(spans).toEqual([
+      { text: 'AB', state: 'sent' },
+      { text: 'C', state: 'cur' },
+      { text: 'DE', state: 'rest' },
+    ])
+    expect(buildMaterialSpans('AB', 1)).toEqual([
+      { text: 'A', state: 'sent' },
+      { text: 'B', state: 'cur' },
+    ])
+  })
+
+  it('未开始：下划线停在首字符指示起点', () => {
+    expect(buildMaterialSpans('E T', 0)).toEqual([
+      { text: 'E', state: 'cur' },
+      { text: ' T', state: 'rest' },
+    ])
+  })
+
+  it('已发完：全部已发', () => {
+    expect(buildMaterialSpans('E T', 3)).toEqual([{ text: 'E T', state: 'sent' }])
+    expect(buildMaterialSpans('E T', 99)).toEqual([{ text: 'E T', state: 'sent' }])
+  })
+
+  it('空素材与负数安全', () => {
+    expect(buildMaterialSpans('', 0)).toEqual([])
+    expect(buildMaterialSpans('AB', -1)).toEqual([{ text: 'A', state: 'cur' }, { text: 'B', state: 'rest' }])
   })
 })

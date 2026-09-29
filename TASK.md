@@ -77,6 +77,13 @@
 - [x] I3. 发报对照页 chips UI：逐组结果色块（match/wrong/missed/extra + block 深色底）、组/词正确率与对错漏多徽章、图例、折叠逐字符 diff
 - [x] I4. 测试与回归：compare.spec 9 个词级用例、material 数字组/文章用例、E2E 数字组生成用例；vue-tsc 干净 + vitest（118/118）+ E2E（11/11）全绿
 
+## 阶段 J：布局改版 + 音频包络修复（原型确认后实施）
+
+- [x] J1. 发报页分区模型：设置区/功能区分离——练习中设置区折叠为摘要条（点开可调参数）；功能区左右分栏（左素材卡：已发高亮+当前位置下划线+自动滚动跟随+进度；右实时发报+比对 chips）；自由模式单栏居中放大；⛶ 全屏练习（Fullscreen API）；结束练习弹出报告弹窗
+- [x] J2. 听抄页：移除素材预览卡；设置区合并素材生成+播放设置，右侧听抄输入功能区
+- [x] J3. 播放声音修复：`scheduleTones` 缺平台保持段导致符号期间音量持续衰减 + 消音仅 2ms——抽出 `buildGainSchedule` 梯形包络纯函数（attack 5ms → hold → release 6ms，短符号 clamp），发报/播放/WAV 三处统一；wav.ts 升级升余弦整形（ARRL 5ms / W8JI 6-7ms 依据）
+- [x] J4. 测试与回归：buildMaterialSpans 5 用例、gain.spec 6 用例；E2E 适配分区布局（未开始无时间线画布、stop 后功能区卸载）；vue-tsc 干净 + vitest（129/129）+ E2E（11/11）全绿；原型 prototype-layout.html 先行确认，用户听验通过
+
 ## 验收标准（阶段 G 出口）
 
 1. 五大痛点修复项全部满足 DESIGN.md §2.2 验收标准

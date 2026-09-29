@@ -217,3 +217,28 @@ export function generateMaterial(rng: () => number, opts: MaterialOptions): stri
     }
   }
 }
+
+/** 素材跟随高亮：按已发字符数把素材切成 已发/当前/未发 三态片段（相邻同态合并） */
+export type MaterialSpanState = 'sent' | 'cur' | 'rest'
+
+export interface MaterialSpan {
+  text: string
+  state: MaterialSpanState
+}
+
+export function buildMaterialSpans(material: string, sentCount: number): MaterialSpan[] {
+  const sent = Math.max(0, Math.min(sentCount, material.length))
+  const spans: MaterialSpan[] = []
+  const push = (state: MaterialSpanState, from: number, to: number): void => {
+    if (to <= from) return
+    const text = material.slice(from, to)
+    if (!text) return
+    const last = spans[spans.length - 1]
+    if (last && last.state === state) last.text += text
+    else spans.push({ text, state })
+  }
+  push('sent', 0, sent)
+  push('cur', sent, sent + 1)
+  push('rest', sent + 1, material.length)
+  return spans
+}

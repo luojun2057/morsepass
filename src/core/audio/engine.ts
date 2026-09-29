@@ -5,10 +5,75 @@
  * - AudioContext 在首次用户手势时创建并 resume，之后常驻
  * - 振荡器启动一次后不停，发声/静音全部通过 GainNode 包络调度，
  *   杜绝"每次按键新建振荡器"的启动开销
- * - 发报路径：keydown → 立即 ramp up（约 4ms 起音），体感无延迟
+ * - 发报路径：keydown → 立即 ramp up（约 5ms 起音），体感无延迟
+ *
+ * 包络形状（CW 工程实践）：
+ * - ARRL 推荐 5ms rise/fall，W8JI 实践用 6-7ms；几毫秒之差 = 30dB 的 click 差异
+ * - 播放路径必须是「梯形包络」：attack → 平台保持 → release。
+ *   注意 linearRampToValueAtTime 是从上一个自动化事件直连斜坡，
+ *   若不显式 hold，整个符号期间音量会持续线性衰减（听感"发虚渐弱"）
  */
 
 type AnyAudioContext = AudioContext & { webkitAudioContext?: typeof AudioContext }
+
+/** 包络过渡时长：起音 / 消音（秒）。发报、播放、WAV 三处统一 */
+export const ATTACK_SEC = 0.005
+export const RELEASE_SEC = 0.006
+
+export interface GainAutomationEvent {
+  /** 相对播放起点的秒数 */
+  time: number
+  type: 'set' | 'ramp'
+  value: number
+}
+
+export interface GainScheduleOptions {
+  volume: number
+  attackSec?: number
+  releaseSec?: number
+}
+
+/**
+ * 把开关事件序列编译为 gain 自动化曲线（梯形包络）。
+ * 纯函数：便于单测验证「平台保持」结构与短符号 clamp。
+ * 短符号保护：attack + release 不超过符号时长的 60%（约 40WPM 点长 30ms 时仍安全）。
+ */
+export function buildGainSchedule(
+  events: { t: number; on: boolean }[],
+  opts: GainScheduleOptions,
+): GainAutomationEvent[] {
+  const attack = opts.attackSec ?? ATTACK_SEC
+  const release = opts.releaseSec ?? RELEASE_SEC
+  const out: GainAutomationEvent[] = []
+  const lastT = events.length > 0 ? events[events.length - 1].t : 0
+
+  let i = 0
+  while (i < events.length) {
+    if (!events[i].on) {
+      i++
+      continue
+    }
+    const onMs = events[i].t
+    let offMs = lastT
+    if (i + 1 < events.length && !events[i + 1].on) {
+      offMs = events[i + 1].t
+      i += 2
+    } else {
+      i++
+    }
+    const durSec = (offMs - onMs) / 1000
+    const a = Math.max(0.001, Math.min(attack, durSec * 0.6))
+    const r = Math.max(0.002, Math.min(release, durSec * 0.6 - a))
+    const onSec = onMs / 1000
+    const offSec = offMs / 1000
+    out.push({ time: onSec, type: 'set', value: 0.0001 })
+    out.push({ time: onSec + a, type: 'ramp', value: opts.volume })
+    const holdTime = Math.max(onSec + a, offSec - r)
+    out.push({ time: holdTime, type: 'set', value: opts.volume })
+    out.push({ time: offSec, type: 'ramp', value: 0.0001 })
+  }
+  return out
+}
 
 export interface LatencyInfo {
   baseMs: number | null
@@ -105,28 +170,28 @@ export class AudioEngine {
     }
   }
 
-  /** 发报按下：立即起音 */
+  /** 发报按下：立即起音（5ms 过渡，与播放路径一致） */
   startTone(): void {
     if (!this.gain || !this.ctx) return
     const g = this.gain.gain
     const t = this.ctx.currentTime + 0.001
     g.cancelScheduledValues(t)
     g.setValueAtTime(Math.min(0.0001, g.value), t)
-    g.linearRampToValueAtTime(this.volume, t + 0.004)
+    g.linearRampToValueAtTime(this.volume, t + ATTACK_SEC)
   }
 
-  /** 发报抬起：立即消音 */
+  /** 发报抬起：立即消音（6ms 过渡，过快会产生可闻咔嗒声） */
   stopTone(): void {
     if (!this.gain || !this.ctx) return
     const g = this.gain.gain
     const t = this.ctx.currentTime + 0.001
     g.cancelScheduledValues(t)
     g.setValueAtTime(g.value, t)
-    g.linearRampToValueAtTime(0.0001, t + 0.005)
+    g.linearRampToValueAtTime(0.0001, t + RELEASE_SEC)
   }
 
   /**
-   * 批量调度播放包络（听抄/跟发）。
+   * 批量调度播放包络（听抄/跟发）：梯形包络（attack → 平台 → release）。
    * events 为相对毫秒时间轴；offsetMs 为相对当前的起始延迟。
    * 返回排程的绝对开始时刻（ctx.currentTime 基准，毫秒）。
    */
@@ -135,15 +200,10 @@ export class AudioEngine {
     const g = this.gain.gain
     const t0 = this.ctx.currentTime + offsetMs / 1000 + 0.02
     g.cancelScheduledValues(t0)
-    g.setValueAtTime(0.0001, t0)
-    for (const ev of events) {
-      const abs = t0 + ev.t / 1000
-      if (ev.on) {
-        g.setValueAtTime(0.0001, abs)
-        g.linearRampToValueAtTime(this.volume, abs + 0.004)
-      } else {
-        g.linearRampToValueAtTime(0.0001, abs + 0.002)
-      }
+    for (const ev of buildGainSchedule(events, { volume: this.volume })) {
+      const abs = t0 + ev.time
+      if (ev.type === 'set') g.setValueAtTime(ev.value, abs)
+      else g.linearRampToValueAtTime(ev.value, abs)
     }
     this.scheduleQsb(events, t0)
     return t0 * 1000

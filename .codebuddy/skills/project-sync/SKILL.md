@@ -122,7 +122,9 @@ description: 项目工作流同步技能（Git + ima 知识库双轨 + WorkBuddy
 - **默认策略对照**：不传该参数时默认 `SAVE`（另存 + 时间戳后缀），即 v1.4 已实证的旧行为。
 - **项目级技能加载路径**（依据本机 CLI 明文源码 `cli/dist/codebuddy.js` 的 `getSourcePaths`）：`project` → `.codebuddy/skills, .codebuddy/commands`；`user` → `~/.codebuddy/skills`（本机实测 `~/.workbuddy/skills/` 亦被扫描）。故仓库内项目级副本放 `<仓库根>/.codebuddy/skills/project-sync/` 正确。
 - **注意**：技能索引是**会话启动快照**，会话中途新增/替换技能不会被已开会话感知；项目级优先级验证必须在**新开会话**（且不装用户级同名技能）中进行。
-- **push 通道**：本机 git 走 HTTPS 推 GitHub 会被网络层间歇重置（`Recv failure`/`Empty reply`/`Failed to connect`），**不是**沙箱策略也**不是**凭据问题（同时刻 python TLS 到 github.com 正常）。重试若被 ultra timeout 杀掉，进程**可能已在服务端完成**——先查远端 ref 再判定失败。彻底绕行见技能 `github-push-via-api`（REST API 原样复刻 commit，tree/commit 双哈希可校验一致）；合并阶段更新 main 可用 `PATCH /repos/{owner}/{repo}/git/refs/heads/main`（需 force=false 的快进更新）。
+- **push 通道**：本机 git 走 HTTPS 推 GitHub 会被网络层间歇重置（`Recv failure`/`Empty reply`/`Failed to connect`），**不是**沙箱策略也**不是**凭据问题（同时刻 python TLS 到 github.com 正常）。重试若被 timeout 杀掉，进程**可能已在服务端完成**——先查远端 ref 再判定失败。彻底绕行见技能 `github-push-via-api`（REST API 原样复刻 commit，tree/commit 双哈希可校验一致；分支已存在时走 PATCH 快进）；合并阶段更新 main 用同一脚本 `--branch main` 即可。
+- **本机 .git 引用异常（2026-10-02 实测复现）**：嵌套形式的引用（`refs/heads/<带斜杠分支>`、`refs/remotes/origin/**`）在 git 写入后会被**外部异步删除**，`git update-ref` 会**静默失败**（退出码 0 但 ref 不存在）；`refs/heads/main` 不受影响。故本机执行分支制流程时：① 提交后立即用 python 写引用文件（**必须完整 40 位 sha**）；② 关键节点 `git bundle create --all` 兜底；③ 收尾用 `.git/packed-refs` 固化。commit 对象不会丢。
+- **ima 技能回同步**：本地技能更新后，用 `ima-kb-write` 对 `project-sync/SKILL.md`、`references/*`、`projects-yaml.md`（.yaml 需 .md 包装）逐一 **REPLACE**；已实证连续 REPLACE 后知识库条目数不增长。ima 侧历史另存副本（`SKILL_YYMMDDHHMMSS.md` 等 11 个）属待清理项，需在 ima App 手动删除。
 
 ## References
 

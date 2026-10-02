@@ -25,6 +25,6 @@ files:                                    # 首次「上传 Git」时登记
     sha256: b7deec37a17bab1b50bf12e766b76f63b5e6b5c2e68980141fe13820dafc1d40
     target: ima
     ima_path: morsepass/assets/icon-192.png
-    status: pending-manual                # 二进制不自动写入，待用户手动上传
-    synced_at: ""
+    status: synced
+    synced_at: "2026-10-02"
     device: SCB-0159

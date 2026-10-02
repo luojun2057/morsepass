@@ -122,6 +122,7 @@ description: 项目工作流同步技能（Git + ima 知识库双轨 + WorkBuddy
 - **默认策略对照**：不传该参数时默认 `SAVE`（另存 + 时间戳后缀），即 v1.4 已实证的旧行为。
 - **项目级技能加载路径**（依据本机 CLI 明文源码 `cli/dist/codebuddy.js` 的 `getSourcePaths`）：`project` → `.codebuddy/skills, .codebuddy/commands`；`user` → `~/.codebuddy/skills`（本机实测 `~/.workbuddy/skills/` 亦被扫描）。故仓库内项目级副本放 `<仓库根>/.codebuddy/skills/project-sync/` 正确。
 - **注意**：技能索引是**会话启动快照**，会话中途新增/替换技能不会被已开会话感知；项目级优先级验证必须在**新开会话**（且不装用户级同名技能）中进行。
+- **push 通道**：本机 git 走 HTTPS 推 GitHub 会被网络层间歇重置（`Recv failure`/`Empty reply`/`Failed to connect`），**不是**沙箱策略也**不是**凭据问题（同时刻 python TLS 到 github.com 正常）。重试若被 ultra timeout 杀掉，进程**可能已在服务端完成**——先查远端 ref 再判定失败。彻底绕行见技能 `github-push-via-api`（REST API 原样复刻 commit，tree/commit 双哈希可校验一致）；合并阶段更新 main 可用 `PATCH /repos/{owner}/{repo}/git/refs/heads/main`（需 force=false 的快进更新）。
 
 ## References
 

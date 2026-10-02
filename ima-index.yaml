@@ -1,0 +1,30 @@
+project: morsepass
+remote:
+  platform: github
+  url: https://github.com/luojun2057/morsepass.git
+ima:
+  kb_id: "001a9b3079006664"
+  root_prefix: "morsepass/"
+mirror:                                   # 镜像页（ima 侧，人类可读，每次同步刷新）
+  homepage: "morsepass/morsepass-项目主页.md"
+  catalog: "morsepass/morsepass-资料目录.md"   # 2026-10-02 首次登记素材后生成
+rules:                                    # 项目级规则（覆盖默认规则）
+  - pattern: "docs/design/**"
+    target: ima
+  - pattern: "assets/**"
+    target: ima                           # 用户改判：试点预期图标走 ima 待传清单（默认规则为「小素材→Git」）
+files:                                    # 首次「上传 Git」时登记
+  - path: docs/design/iambic-mode-a.md
+    sha256: 250365077152b70312d2f50a931e55083a1cfe80abc830fefe72f1b428f75b1a
+    target: ima
+    ima_path: morsepass/docs/iambic-mode-a.md
+    status: synced
+    synced_at: "2026-10-02"
+    device: SCB-0159
+  - path: assets/icon-192.png
+    sha256: b7deec37a17bab1b50bf12e766b76f63b5e6b5c2e68980141fe13820dafc1d40
+    target: ima
+    ima_path: morsepass/assets/icon-192.png
+    status: pending-manual                # 二进制不自动写入，待用户手动上传
+    synced_at: ""
+    device: SCB-0159

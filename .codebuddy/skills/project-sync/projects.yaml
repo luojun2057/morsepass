@@ -1,0 +1,17 @@
+# project-sync 全局项目注册表（设备本地一份，不随项目仓同步）
+# 字段：name 项目名 / platform github|gitee / repo 远端地址 / local_path 本地工作空间路径
+#       ima_prefix 该项目在 ima 的路径前缀 / device 本设备标识 / created 建立日期
+
+device: SCB-0159           # 本设备标识 = hostname 实测值（对外简称 SCB-159）
+default_platform: gitee   # 新项目默认平台（决策①）
+
+projects:
+  - name: morsepass
+    platform: github
+    repo: git@github.com:luojun2057/morsepass.git
+    # 本机实际可用克隆地址（HTTPS + PAT）：https://github.com/luojun2057/morsepass.git
+    local_path: C:\xiangmu\morsepass
+    ima_prefix: "morsepass/"
+    device: SCB-0159
+    created: "2026-10-01"
+    note: 试点项目（决策④⑤），设备标识已按 hostname 实测定为 SCB-0159（对外简称 SCB-159）；2026-10-02 已完成接入；push-morsepass.js 并存渐进切换

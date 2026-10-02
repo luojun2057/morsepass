@@ -8,3 +8,7 @@ playwright-report/
 test-results/
 .env
 .env.*
+
+# project-sync 分流：规则判定为 ima 类的素材不进 Git（见 ima-index.yaml 的 rules）
+docs/design/
+assets/
